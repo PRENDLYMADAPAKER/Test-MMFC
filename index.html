@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CI ADMIN PANEL — Enhanced</title>
+
+  <style>
+    :root {
+      --bg-start: #ffd6f0;
+      --bg-mid: #ffffff;
+      --bg-end: #d6b8ff;
+      --panel: rgba(15,23,36,0.85);
+      --muted: #5b6b7a;
+      --accent: #6b21a8;
+      --success: #16a34a;
+      --warn: #d97706;
+      --danger: #dc2626;
+    }
+
+    html,body {
+      height:100%; margin:0;
+      font-family:Inter, Arial, sans-serif;
+      color:#0b1220;
+    }
+
+    body{
+      background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 45%, var(--bg-end) 100%);
+    }
+
+    header{
+      background: rgba(255,255,255,0.6);
+      padding:12px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 4px 14px rgba(2,6,23,0.08);
+    }
+
+    header h1{ margin:0; font-size:18px; color:#2b0b3a }
+    #logo{ height:36px; width:auto; border-radius:6px; }
+    #clock{ font-family:monospace; color:var(--muted); }
+
+    main{
+      max-width:1200px;
+      margin:18px auto;
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+      box-sizing:border-box;
+    }
+
+    .card{
+      background: rgba(255,255,255,0.85);
+      padding:16px;
+      border-radius:12px;
+      box-shadow:0 6px 18px rgba(11,17,32,0.06);
+    }
+
+    #video{
+      width:100%;
+      max-width:360px;
+      border-radius:8px;
+      background:#000;
+      display:block;
+      margin:0 auto;
+    }
+
+    .controls{
+      display:flex; gap:10px;
+      justify-content:center;
+      margin-top:14px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      background:linear-gradient(90deg,#ff8acb,#8b5cf6);
+      color:#fff; border:none;
+      padding:10px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:700;
+    }
+
+    button[disabled]{ opacity:.6; cursor:not-allowed }
+
+    input, select{
+      padding:8px;
+      border-radius:8px;
+      border:1px solid rgba(11,17,32,0.06);
+      min-width:120px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:8px;
+      font-size:14px;
+    }
+
+    th,td{
+      padding:10px;
+      border-bottom:1px solid rgba(11,17,32,0.06);
+      text-align:left;
+    }
+
+    th{
+      background: rgba(11,17,32,0.02);
+      cursor:pointer;
+    }
+
+    tr:nth-child(even){ background: rgba(11,17,32,0.02) }
+    .no-records{ text-align:center; color:var(--muted); padding:18px }
+
+    /* ------------------------ */
+    /* MOBILE RESPONSIVE UPGRADE */
+    /* ------------------------ */
+    @media (max-width: 768px) {
+
+      header h1 { font-size:14px; }
+      #clock { font-size:12px; }
+      #logo { height:28px; }
+
+      main {
+        grid-template-columns:1fr;
+        padding:8px;
+      }
+
+      .controls button {
+        width:100%;
+        padding:12px;
+      }
+
+      input, select {
+        width:100%;
+        margin-bottom:6px;
+      }
+
+      table{
+        display:block;
+        overflow-x:auto;
+        white-space:nowrap;
+      }
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+</head>
+
+<body>
+
+<header>
+  <h1>📋 Admin DTR Panel — Clinical Instructor</h1>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div id="clock">--:--:--</div>
+    <img id="logo" src="https://via.placeholder.com/120x36?text=Logo" />
+  </div>
+</header>
+
+<main>
+
+<!------------------------------>
+<!-- QR SCANNER PANEL          -->
+<!------------------------------>
+
+<section class="card">
+
+  <video id="video" muted autoplay playsinline></video>
+  <div id="result">Scanner idle</div>
+
+  <div id="profile" style="margin-top:12px;display:none">
+    <div><strong>Name:</strong> <span id="profile-name"></span></div>
+    <div><strong>Email:</strong> <span id="profile-email"></span></div>
+    <div><strong>Mode:</strong> <span id="profile-mode"></span></div>
+    <div><strong>Period:</strong> <span id="profile-period"></span></div>
+    <div><strong>Status:</strong> <span id="profile-status"></span></div>
+  </div>
+
+  <div class="controls">
+    <button id="start-btn">Start Scanner</button>
+    <button id="stop-btn" disabled>Stop Scanner</button>
+  </div>
+
+  <hr style="margin:12px 0" />
+
+  <h3>Event & Time Settings</h3>
+
+  <div class="form-row" style="margin-bottom:8px">
+    <input id="event-input" placeholder="Event name (e.g., Midterm Rounds)" />
+    <button id="save-event">Save Event</button>
+  </div>
+
+  <div class="form-row" style="margin-bottom:8px">
+    <div>
+      <label class="small">Morning On-time</label><br>
+      <input id="morning-on" placeholder="08:00" />
+    </div>
+    <div>
+      <label class="small">Afternoon On-time</label><br>
+      <input id="afternoon-on" placeholder="13:00" />
+    </div>
+    <div>
+      <label class="small">Grace minutes</label><br>
+      <input id="grace-min" placeholder="5" />
+    </div>
+    <button id="save-times">Save Times</button>
+  </div>
+
+</section>
+
+
+<!------------------------------>
+<!-- LOGS PANEL                -->
+<!------------------------------>
+
+<section class="card">
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <input id="logs-search" placeholder="Search name/course/year..." />
+    <button id="export-btn">💾 Export</button>
+    <button id="print-btn">🖨️ Print</button>
+    <button id="reset-btn" class="reset-btn" style="background:#dc2626">Reset Today</button>
+  </div>
+
+  <!-- Filters -->
+  <div style="margin-bottom:10px;display:flex;gap:10px;flex-wrap:wrap">
+    <select id="filter-period">
+      <option value="">All Periods</option>
+      <option value="Morning">Morning</option>
+      <option value="Afternoon">Afternoon</option>
+    </select>
+
+    <select id="filter-status">
+      <option value="">All Status</option>
+      <option value="On Time">On Time</option>
+      <option value="Late">Late</option>
+    </select>
+
+    <select id="page-size">
+      <option value="10">10 rows</option>
+      <option value="20">20 rows</option>
+      <option value="50">50 rows</option>
+    </select>
+  </div>
+
+  <!-- Pagination -->
+  <div id="pagination-controls" style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+    <button id="prev-page">⬅ Prev</button>
+    <span id="page-info">Page 1</span>
+    <button id="next-page">Next ➡</button>
+  </div>
+
+  <table id="logs-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Course / Year</th>
+        <th>Time In</th>
+        <th>Time Out</th>
+        <th>Date</th>
+        <th>Period</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="logs-body">
+      <tr><td colspan="7" class="no-records">Loading...</td></tr>
+    </tbody>
+  </table>
+
+</section>
+
+</main>
+
+<audio id="success-sound" src="Thank you.mp3" preload="auto"></audio>
+
+<script type="module">
+
+/* ---------------------------- */
+/* FIREBASE CONFIG (NEW)        */
+/* ---------------------------- */
+
+import { initializeApp } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, set, update, remove, onValue }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
+  authDomain: "dent-dept-dtr.firebaseapp.com",
+  databaseURL: "https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dent-dept-dtr",
+  storageBucket: "dent-dept-dtr.firebasestorage.app",
+  messagingSenderId: "537868899036",
+  appId: "1:537868899036:web:8dd6dfa10493533616da19",
+  measurementId: "G-KD8DF5EDSW"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ---------------------------- */
+
+  /* ---------------------------- */
+/* PART 2 — FULL APP LOGIC      */
+/* ---------------------------- */
+
+/* Elements */
+const videoEl = document.getElementById('video');
+const resultDiv = document.getElementById('result');
+const profileBox = document.getElementById('profile');
+const profileName = document.getElementById('profile-name');
+const profileEmail = document.getElementById('profile-email');
+const profileMode = document.getElementById('profile-mode');
+const profilePeriod = document.getElementById('profile-period');
+const profileStatus = document.getElementById('profile-status');
+
+const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
+const exportBtn = document.getElementById('export-btn');
+const printBtn = document.getElementById('print-btn');
+const resetBtn = document.getElementById('reset-btn');
+const logsSearch = document.getElementById('logs-search');
+const logsBody = document.getElementById('logs-body');
+
+const eventInput = document.getElementById('event-input');
+const saveEventBtn = document.getElementById('save-event');
+const morningOnInput = document.getElementById('morning-on');
+const afternoonOnInput = document.getElementById('afternoon-on');
+const graceMinInput = document.getElementById('grace-min');
+const saveTimesBtn = document.getElementById('save-times');
+
+const filterPeriod = document.getElementById('filter-period');
+const filterStatus = document.getElementById('filter-status');
+const pageSizeSelect = document.getElementById('page-size');
+const prevPageBtn = document.getElementById('prev-page');
+const nextPageBtn = document.getElementById('next-page');
+const pageInfo = document.getElementById('page-info');
+
+const successSound = document.getElementById('success-sound');
+
+/* ZXing QR reader */
+const codeReader = new ZXing.BrowserQRCodeReader();
+
+/* State */
+let scanning = false;
+let scanCooldowns = {};
+let logsData = [];
+let currentPage = 1;
+let pageSize = parseInt(pageSizeSelect.value || '10');
+
+/* Firebase refs */
+const settingsRef = ref(db, `settings/ci`);
+
+/* ---------------------------- */
+/* Time helper (Manila)         */
+/* ---------------------------- */
+function manilaNow(){
+  const now = new Date();
+  const str = now.toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+  return new Date(str);
+}
+function pad(n){ return n < 10 ? '0'+n : ''+n; }
+function todayYMD(d = manilaNow()){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function timeHMS(d = manilaNow()){ return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+function timeHM(d = manilaNow()){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/[&<>"]+/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]||m)); }
+
+/* Clock */
+const clockElem = document.getElementById('clock');
+function updateClock(){ const now = manilaNow(); clockElem.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`; }
+setInterval(updateClock, 1000); updateClock();
+
+/* UI helpers */
+function setResult(msg, status='info'){
+  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+  resultDiv.textContent = `${icons[status]||''} ${msg}`;
+  resultDiv.className = '';
+  resultDiv.classList.add(`status-${status}`);
+}
+
+/* ---------------------------- */
+/* Scanner start / stop         */
+/* ---------------------------- */
+async function startScanner(){
+  if (scanning) return;
+  try {
+    const devices = await codeReader.listVideoInputDevices();
+    if (!devices || devices.length === 0) { setResult('No camera devices found.', 'error'); return; }
+    const back = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
+    scanning = true; setResult('Point camera to a QR code.', 'info');
+    codeReader.decodeFromVideoDevice(back.deviceId, videoEl, (result, err) => {
+      if (result && result.getText) handleScan(result.getText());
+      else if (err && !(err instanceof ZXing.NotFoundException)) { console.error('ZXing error:', err); setResult('Camera error: ' + err.message, 'error'); }
+    });
+    startBtn.disabled = true; stopBtn.disabled = false;
+  } catch(e){
+    console.error('startScanner', e);
+    setResult('Camera error: ' + (e.message || e), 'error');
+  }
+}
+function stopScanner(){
+  try { codeReader.reset(); } catch(e){}
+  scanning = false;
+  setResult('Scanner stopped.', 'info');
+  startBtn.disabled = false; stopBtn.disabled = true;
+  profileBox.style.display = 'none';
+}
+
+/* ---------------------------- */
+/* Settings load / save         */
+/* ---------------------------- */
+async function loadSettings(){
+  try {
+    const snap = await get(settingsRef);
+    const s = snap.exists() ? snap.val() : {};
+    eventInput.value = s.event || '';
+    if (s.times){
+      morningOnInput.value = s.times.morningOn || '08:00';
+      afternoonOnInput.value = s.times.afternoonOn || '13:00';
+      graceMinInput.value = s.times.graceMin != null ? s.times.graceMin : 5;
+    } else {
+      morningOnInput.value = s.morningOn || '08:00';
+      afternoonOnInput.value = s.afternoonOn || '13:00';
+      graceMinInput.value = s.graceMin != null ? s.graceMin : 5;
+    }
+    return s;
+  } catch(err){
+    console.error('loadSettings', err);
+    return {};
+  }
+}
+
+saveEventBtn.addEventListener('click', async ()=>{
+  const val = (eventInput.value || '').trim();
+  try {
+    await set(ref(db, `settings/ci/event`), val);
+    setResult('Event saved.', 'success');
+  } catch(err){
+    console.error('saveEvent', err);
+    setResult('Failed to save event: ' + (err.message || err), 'error');
+  }
+});
+
+saveTimesBtn.addEventListener('click', async ()=>{
+  const morning = (morningOnInput.value || '08:00').trim();
+  const afternoon = (afternoonOnInput.value || '13:00').trim();
+  const grace = parseInt(graceMinInput.value || '5');
+  try {
+    await set(ref(db, `settings/ci/times`), { morningOn: morning, afternoonOn: afternoon, graceMin: isNaN(grace)?5:grace });
+    setResult('Time settings saved.', 'success');
+  } catch(err){
+    console.error('saveTimes', err);
+    setResult('Failed to save times: ' + (err.message || err), 'error');
+  }
+});
+
+/* ---------------------------- */
+/* Time comparison helpers      */
+/* ---------------------------- */
+function isOnTime(scanHM, onTimeHM, graceMin){
+  const [sh,sm] = (scanHM || '00:00').split(':').map(Number);
+  const [oh,om] = (onTimeHM || '00:00').split(':').map(Number);
+  const scanMinutes = sh*60 + sm;
+  const onMinutes = oh*60 + om;
+  return scanMinutes <= (onMinutes + (graceMin||0));
+}
+function periodForDate(d = manilaNow()){
+  return d.getHours() < 12 ? 'Morning' : 'Afternoon';
+}
+
+/* ---------------------------- */
+/* Handle Scan (IN / OUT)       */
+/* ---------------------------- */
+async function handleScan(text){
+  if (!scanning) return;
+  const raw = String(text || '').trim(); if (!raw) return;
+  const nowMs = Date.now(); if (scanCooldowns[raw] && (nowMs - scanCooldowns[raw] < 3000)) return; scanCooldowns[raw] = nowMs;
+
+  const parts = raw.split('|');
+  if(parts.length !== 2) { setResult('Invalid QR format. Expected "UID|MODE".', 'error'); profileBox.style.display = 'none'; return; }
+  const uid = parts[0].trim(); const mode = parts[1].trim().toUpperCase();
+  if (!uid || (mode !== 'IN' && mode !== 'OUT')) { setResult('Invalid UID or Mode in QR code.', 'error'); profileBox.style.display = 'none'; return; }
+
+  setResult(`Processing UID: ${uid} Mode: ${mode}`, 'info');
+  profileBox.style.display = 'none';
+
+  const dateStr = todayYMD(); const timeStr = timeHMS(); const hm = timeHM(); const period = periodForDate();
+
+  try{
+    const profSnap = await get(ref(db, `users/${uid}/profile`));
+    if (!profSnap.exists()){ setResult(`UID ${uid} not registered.`, 'error'); return; }
+    const profile = profSnap.val();
+
+    // load times
+    const sSnap = await get(ref(db, `settings/ci/times`));
+    const s = sSnap.exists() ? sSnap.val() : { morningOn:'08:00', afternoonOn:'13:00', graceMin:5 };
+    const onTimeHM = period === 'Morning' ? (s.morningOn||'08:00') : (s.afternoonOn||'13:00');
+    const grace = s.graceMin != null ? s.graceMin : 5;
+    const statusIn = isOnTime(hm, onTimeHM, grace) ? 'On Time' : 'Late';
+
+    const dtrRef = ref(db, `users/${uid}/dtr/${dateStr}/${period.toLowerCase()}`);
+    const dtrSnap = await get(dtrRef);
+    const dtrData = dtrSnap.exists() ? dtrSnap.val() : {};
+
+    // IN
+    if (mode === 'IN'){
+      if (dtrData.timeIn){
+        setResult(`Already TIME IN for ${period} at ${dtrData.timeIn}`, 'warning');
+        // show profile quickly
+        profileName.textContent = profile.name || '';
+        profileEmail.textContent = profile.email || '';
+        profileMode.textContent = 'IN';
+        profilePeriod.textContent = period;
+        profileStatus.textContent = dtrData.timeInStatus || '';
+        profileBox.style.display = 'block';
+        return;
+      }
+
+      await update(dtrRef, {
+        timeIn: timeStr,
+        tsIn: Date.now(),
+        timeInStatus: statusIn
+      });
+
+      await set(ref(db, `timeIns/${dateStr}/${uid}_${period}`), {
+        uid, name: profile.name||'', email: profile.email||'', course: profile.course||'', year: profile.year||'', date: dateStr, time: timeStr, ts: Date.now(), period, status: statusIn
+      });
+
+      setResult(`Recorded TIME IN (${period}) for ${profile.name} at ${timeStr} — ${statusIn}`, 'success');
+      try { successSound.play(); } catch(e){}
+
+      profileName.textContent = profile.name || '';
+      profileEmail.textContent = profile.email || '';
+      profileMode.textContent = 'IN';
+      profilePeriod.textContent = period;
+      profileStatus.textContent = statusIn;
+      profileBox.style.display = 'block';
+
+    } else if (mode === 'OUT'){ // OUT
+      if (!dtrData.timeIn){
+        setResult(`Cannot TIME OUT — user has not TIMED IN for ${period}`, 'error');
+        return;
+      }
+      if (dtrData.timeOut){
+        setResult(`Already TIME OUT for ${period} at ${dtrData.timeOut}`, 'warning');
+        // show profile
+        profileName.textContent = profile.name || '';
+        profileEmail.textContent = profile.email || '';
+        profileMode.textContent = 'OUT';
+        profilePeriod.textContent = period;
+        profileStatus.textContent = dtrData.timeInStatus || '';
+        profileBox.style.display = 'block';
+        return;
+      }
+
+      await update(dtrRef, {
+        timeOut: timeStr,
+        tsOut: Date.now()
+      });
+
+      await set(ref(db, `timeOuts/${dateStr}/${uid}_${period}`), {
+        uid, name: profile.name||'', email: profile.email||'', course: profile.course||'', year: profile.year||'', date: dateStr, time: timeStr, ts: Date.now(), period
+      });
+
+      setResult(`Recorded TIME OUT (${period}) for ${profile.name} at ${timeStr}`, 'success');
+      try { successSound.play(); } catch(e){}
+
+      profileName.textContent = profile.name || '';
+      profileEmail.textContent = profile.email || '';
+      profileMode.textContent = 'OUT';
+      profilePeriod.textContent = period;
+      profileStatus.textContent = dtrData.timeInStatus || '';
+      profileBox.style.display = 'block';
+    }
+
+  } catch(err){
+    console.error('Error saving DTR:', err);
+    setResult('Error saving time record: ' + (err.message || err), 'error');
+    profileBox.style.display = 'none';
+  }
+}
+
+/* ---------------------------- */
+/* Flatten and render logs      */
+/* ---------------------------- */
+function flattenLogs(insObj, outsObj){
+  const rows = [];
+  const keys = new Set([...Object.keys(insObj||{}), ...Object.keys(outsObj||{})]);
+  keys.forEach(k => {
+    const inEntry = insObj && insObj[k] ? insObj[k] : null;
+    const outEntry = outsObj && outsObj[k] ? outsObj[k] : null;
+    const parts = k.split('_');
+    const uid = parts[0] || '';
+    const period = parts[1] || '';
+    rows.push({
+      name: inEntry?.name || outEntry?.name || '',
+      course: inEntry?.course || outEntry?.course || '',
+      year: inEntry?.year || outEntry?.year || '',
+      timeIn: inEntry?.time || '',
+      timeOut: outEntry?.time || '',
+      date: inEntry?.date || outEntry?.date || todayYMD(),
+      period: period,
+      timeInStatus: inEntry?.status || ''
+    });
+  });
+  // default sort: by name then date
+  rows.sort((a,b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1; // newest first
+    return (a.name || '').localeCompare(b.name || '');
+  });
+  return rows;
+}
+
+/* ---------------------------- */
+/* Pagination + Filtering       */
+/* ---------------------------- */
+function getFilteredLogs() {
+  const ft = (logsSearch.value || "").toLowerCase();
+  const periodFilter = (filterPeriod.value || "");
+  const statusFilter = (filterStatus.value || "");
+
+  return logsData.filter(e => {
+    const matchText =
+      (e.name || '').toLowerCase().includes(ft) ||
+      (e.course || '').toLowerCase().includes(ft) ||
+      ('' + (e.year || '')).toLowerCase().includes(ft) ||
+      (e.date || '').toLowerCase().includes(ft);
+
+    const matchPeriod = !periodFilter || e.period === periodFilter;
+    const matchStatus = !statusFilter || (e.timeInStatus === statusFilter);
+
+    return matchText && matchPeriod && matchStatus;
+  });
+}
+
+function renderLogsUI(){
+  const filtered = getFilteredLogs();
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const start = (currentPage - 1) * pageSize;
+  const pageSlice = filtered.slice(start, start + pageSize);
+
+  if (pageSlice.length === 0){
+    logsBody.innerHTML = '<tr><td colspan="7" class="no-records">No records</td></tr>';
+  } else {
+    logsBody.innerHTML = pageSlice.map(entry => {
+      const courseYear = `${escapeHtml(entry.course||'')} ${entry.year?('/ '+escapeHtml(entry.year)) : ''}`;
+      const tine = escapeHtml(entry.timeIn||'—');
+      const tout = escapeHtml(entry.timeOut||'—');
+      return `<tr>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${courseYear}</td>
+        <td>${tine}</td>
+        <td>${tout}</td>
+        <td>${escapeHtml(entry.date)}</td>
+        <td>${escapeHtml(entry.period)}</td>
+        <td>${escapeHtml(entry.timeInStatus||'')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  pageInfo.textContent = `Page ${currentPage} of ${totalPages || 1}`;
+}
+
+/* ---------------------------- */
+/* Listen to Firebase logs      */
+/* ---------------------------- */
+async function listenLogs(){
+  const dateStr = todayYMD();
+  const insRef = ref(db, `timeIns/${dateStr}`);
+  const outsRef = ref(db, `timeOuts/${dateStr}`);
+
+  function update(){
+    Promise.all([get(insRef), get(outsRef)]).then(([inSnap, outSnap]) => {
+      const ins = inSnap.exists() ? inSnap.val() : {};
+      const outs = outSnap.exists() ? outSnap.val() : {};
+      logsData = flattenLogs(ins, outs);
+      currentPage = 1;
+      renderLogsUI();
+    }).catch(err => { console.error('update logs', err); setResult('Failed to load logs', 'error'); });
+  }
+
+  onValue(insRef, update);
+  onValue(outsRef, update);
+  update();
+}
+
+/* ---------------------------- */
+/* Export CSV (uses event name) */
+/* ---------------------------- */
+function exportCSV(){
+  const filtered = getFilteredLogs();
+  if (!filtered || filtered.length === 0) { alert('No data to export'); return; }
+  const headers = ['Name','Course','Year','Time In','Time Out','Date','Period','Status'];
+  const rows = filtered.map(r => [r.name, r.course, r.year, r.timeIn, r.timeOut, r.date, r.period, r.timeInStatus || '']);
+  let csv = headers.join(',') + '\r\n';
+  rows.forEach(cols => { csv += cols.map(c => '"' + String(c||'').replace(/"/g,'""') + '"').join(',') + '\r\n'; });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  const eventNameFile = (eventInput.value || "DTR").replace(/[^a-z0-9]/gi, "_");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${eventNameFile}_${todayYMD()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/* ---------------------------- */
+/* Print (uses event title)     */
+/* ---------------------------- */
+function printLogs(){
+  const eventName = eventInput.value || "DTR Logs";
+  const filtered = getFilteredLogs();
+
+  const html = `
+<html>
+<head>
+<title>${escapeHtml(eventName)} — ${todayYMD()}</title>
+<style>
+  body { font-family: Arial; color:#111; padding:20px }
+  h2 { margin:0 0 6px 0 }
+  h4 { margin:2px 0 12px 0; font-weight:normal; color:#444 }
+  table { width:100%; border-collapse: collapse; margin-top:10px }
+  th,td { border:1px solid #ccc; padding:6px; text-align:left; font-size:12px }
+  th { background:#eee }
+</style>
+</head>
+<body>
+  <h2>${escapeHtml(eventName)}</h2>
+  <h4>Date: ${todayYMD()}</h4>
+
+  <table>
+  <thead>
+    <tr>
+      <th>Name</th><th>Course</th><th>Year</th><th>Time In</th><th>Time Out</th><th>Period</th><th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${filtered.map(r => `<tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.course)}</td>
+      <td>${escapeHtml(r.year)}</td>
+      <td>${escapeHtml(r.timeIn)}</td>
+      <td>${escapeHtml(r.timeOut)}</td>
+      <td>${escapeHtml(r.period)}</td>
+      <td>${escapeHtml(r.timeInStatus||'')}</td>
+    </tr>`).join('')}
+  </tbody>
+  </table>
+</body>
+</html>
+  `;
+
+  const w = window.open('', '_blank', 'width=900,height=700');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+/* ---------------------------- */
+/* Reset Today (archive)        */
+/* ---------------------------- */
+async function resetToday(){
+  if (!confirm('Archive today\\'s logs and clear live results?')) return;
+  const dateStr = todayYMD();
+  const timeInsRef = ref(db, `timeIns/${dateStr}`);
+  const timeOutsRef = ref(db, `timeOuts/${dateStr}`);
+  const archiveRef = ref(db, `archives/${dateStr}`);
+  try {
+    const [insSnap, outsSnap] = await Promise.all([get(timeInsRef), get(timeOutsRef)]);
+    const data = { timeIns: insSnap.exists() ? insSnap.val() : {}, timeOuts: outsSnap.exists() ? outsSnap.val() : {} };
+    if ((!data.timeIns || Object.keys(data.timeIns).length === 0) && (!data.timeOuts || Object.keys(data.timeOuts).length === 0)) { alert('No logs to archive for today.'); return; }
+    await set(archiveRef, data);
+    await Promise.all([remove(timeInsRef), remove(timeOutsRef)]);
+    setResult('Archived and cleared today\\'s logs.', 'success');
+  } catch(err){
+    console.error('resetToday', err);
+    setResult('Failed to reset: ' + (err.message || err), 'error');
+  }
+}
+
+/* ---------------------------- */
+/* Event listeners              */
+/* ---------------------------- */
+startBtn.addEventListener('click', startScanner);
+stopBtn.addEventListener('click', stopScanner);
+exportBtn.addEventListener('click', exportCSV);
+printBtn.addEventListener('click', printLogs);
+resetBtn.addEventListener('click', resetToday);
+
+logsSearch.addEventListener('input', () => { currentPage = 1; renderLogsUI(); });
+
+pageSizeSelect.addEventListener('change', (e) => {
+  pageSize = parseInt(e.target.value || '10');
+  currentPage = 1;
+  renderLogsUI();
+});
+
+prevPageBtn.addEventListener('click', () => {
+  if (currentPage > 1) { currentPage--; renderLogsUI(); }
+});
+nextPageBtn.addEventListener('click', () => {
+  const filtered = getFilteredLogs();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  if (currentPage < totalPages) { currentPage++; renderLogsUI(); }
+});
+
+filterPeriod.addEventListener('change', () => { currentPage = 1; renderLogsUI(); });
+filterStatus.addEventListener('change', () => { currentPage = 1; renderLogsUI(); });
+
+/* ---------------------------- */
+/* Initial load                 */
+/* ---------------------------- */
+listenLogs();
+loadSettings().then(()=> {
+  // ensure page shows current settings
+  renderLogsUI();
+});
+
+</script>
+</body>
+</html>
