@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CI ADMIN PANEL — Enhanced (Fixed)</title>
+
+  <style>
+    :root {
+      --bg-start: #ffd6f0;
+      --bg-mid: #ffffff;
+      --bg-end: #d6b8ff;
+      --muted: #5b6b7a;
+      --accent: #6b21a8;
+    }
+    html,body { height:100%; margin:0; font-family:Inter, Arial, sans-serif; color:#0b1220; }
+    body{ background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 45%, var(--bg-end) 100%); }
+
+    header{
+      background: rgba(255,255,255,0.6);
+      padding:12px 20px; display:flex; align-items:center; justify-content:space-between; backdrop-filter: blur(6px);
+      box-shadow: 0 4px 14px rgba(2,6,23,0.08);
+    }
+    header h1{ margin:0; font-size:18px; color:#2b0b3a }
+    #logo{ height:36px; width:auto; border-radius:6px; }
+    #clock{ font-family:monospace; color:var(--muted); }
+    main{ max-width:1200px; margin:18px auto; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:16px; box-sizing:border-box; }
+    .card{ background: rgba(255,255,255,0.85); padding:16px; border-radius:12px; box-shadow:0 6px 18px rgba(11,17,32,0.06); }
+    #video{ width:100%; max-width:360px; border-radius:8px; background:#000; display:block; margin:0 auto; }
+    #result{ margin-top:12px; text-align:center; font-weight:600; min-height:28px; color:#111 }
+    .controls{ display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap }
+    button{ background:linear-gradient(90deg,#ff8acb,#8b5cf6); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:700 }
+    button[disabled]{ opacity:.6; cursor:not-allowed }
+    input, select{ padding:8px; border-radius:8px; border:1px solid rgba(11,17,32,0.06); min-width:120px }
+    .form-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+    table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:14px }
+    th,td{ padding:10px; border-bottom:1px solid rgba(11,17,32,0.06); text-align:left }
+    th{ background: rgba(11,17,32,0.02); cursor:pointer }
+    tr:nth-child(even){ background: rgba(11,17,32,0.02) }
+    .no-records{ text-align:center; color:var(--muted); padding:18px }
+    label.small{ font-size:12px; color:var(--muted) }
+
+    @media (max-width:980px){ main{ grid-template-columns:1fr; padding:12px } #video{ max-width:280px } }
+
+    @media (max-width: 768px) {
+      header h1 { font-size:14px; }
+      #clock { font-size:12px; }
+      #logo { height:28px; }
+      main { grid-template-columns:1fr; padding:8px; }
+      #video { max-width:100%; height:auto; }
+      .controls button { width:100%; padding:12px; }
+      input, select { width:100%; margin-bottom:6px; }
+      table { display:block; overflow-x:auto; white-space:nowrap; }
+      #pagination-controls { flex-direction:column; gap:6px; }
+    }
+
+    .warn-file-protocol {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+      padding:8px;
+      border-radius:8px;
+      margin:8px 0;
+      font-size:13px;
+    }
+  </style>
+
+  <!-- ZXing UMD (global ZXing) -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+</head>
+<body>
+  <header>
+    <div style="display:flex;align-items:center;gap:12px">
+      <h1>📋 Admin DTR Panel — Clinical Instructor</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div id="clock">--:--:--</div>
+      <img id="logo" src="https://via.placeholder.com/120x36?text=Logo" alt="Logo" />
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <!-- notice for file:// protocol -->
+      <div id="file-warning" style="display:none" class="warn-file-protocol">
+        You're opening this file via <code>file://</code>. Module imports (Firebase) may be blocked by your browser. Run via HTTP (e.g., Live Server or `python -m http.server`) for full functionality.
+      </div>
+
+      <video id="video" muted autoplay playsinline></video>
+      <div id="result">Scanner idle</div>
+      <div id="profile" aria-live="polite" style="margin-top:12px;display:none">
+        <div><strong>Name:</strong> <span id="profile-name"></span></div>
+        <div><strong>Email:</strong> <span id="profile-email"></span></div>
+        <div><strong>Mode:</strong> <span id="profile-mode"></span></div>
+        <div><strong>Period:</strong> <span id="profile-period"></span></div>
+        <div><strong>Status:</strong> <span id="profile-status"></span></div>
+      </div>
+
+      <div class="controls">
+        <button id="start-btn">Start Scanner</button>
+        <button id="stop-btn" disabled>Stop Scanner</button>
+      </div>
+
+      <hr style="margin:12px 0" />
+
+      <div>
+        <h3 style="margin:6px 0 8px 0">Event & Time Settings</h3>
+        <div class="form-row" style="margin-bottom:8px">
+          <input id="event-input" placeholder="Event name (e.g., Midterm Rounds)" />
+          <button id="save-event" class="action-btn">Save Event</button>
+        </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <div>
+            <label class="small">Morning On-time (HH:MM)</label><br>
+            <input id="morning-on" placeholder="08:00" />
+          </div>
+          <div>
+            <label class="small">Afternoon On-time (HH:MM)</label><br>
+            <input id="afternoon-on" placeholder="13:00" />
+          </div>
+          <div>
+            <label class="small">Grace minutes</label><br>
+            <input id="grace-min" placeholder="5" />
+          </div>
+          <button id="save-times" class="action-btn">Save Times</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">Saved settings persist to Firebase (so all devices share them).</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <input id="logs-search" placeholder="Search name/course/year..." />
+        <button id="export-btn" class="action-btn">💾 Export</button>
+        <button id="print-btn" class="action-btn">🖨️ Print</button>
+        <button id="reset-btn" class="action-btn reset-btn">🔄 Reset Today</button>
+      </div>
+
+      <div style="margin-bottom:10px;display:flex;gap:10px;flex-wrap:wrap">
+        <select id="filter-period">
+          <option value="">All Periods</option>
+          <option value="Morning">Morning</option>
+          <option value="Afternoon">Afternoon</option>
+        </select>
+
+        <select id="filter-status">
+          <option value="">All Status</option>
+          <option value="On Time">On Time</option>
+          <option value="Late">Late</option>
+        </select>
+
+        <select id="page-size">
+          <option value="10">10 rows</option>
+          <option value="20">20 rows</option>
+          <option value="50">50 rows</option>
+        </select>
+      </div>
+
+      <div id="pagination-controls" style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+        <button id="prev-page" class="action-btn">⬅ Prev</button>
+        <span id="page-info">Page 1</span>
+        <button id="next-page" class="action-btn">Next ➡</button>
+      </div>
+
+      <table id="logs-table" aria-live="polite">
+        <thead>
+          <tr>
+            <th data-key="name">Name</th>
+            <th data-key="course">Course / Year</th>
+            <th data-key="timein">Time In</th>
+            <th data-key="timeout">Time Out</th>
+            <th data-key="date">Date</th>
+            <th data-key="period">Period</th>
+            <th data-key="status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="logs-body">
+          <tr><td colspan="7" class="no-records">Loading...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- small audio fallback: if your file path is different, replace the src or remove audio -->
+  <audio id="success-sound" src="Thank you.mp3" preload="auto"></audio>
+
+  <script type="module">
+    // Helper: show file:// warning if needed
+    if (location.protocol === 'file:') {
+      const warn = document.getElementById('file-warning');
+      if (warn) warn.style.display = 'block';
+    }
+
+    // show runtime errors in UI to help debugging
+    window.onerror = function(message, source, lineno, colno, error) {
+      const out = document.getElementById('result');
+      if (out) out.textContent = 'Runtime error: ' + message;
+      console.error('Window.onerror', message, source, lineno, colno, error);
+      return false;
+    };
+    window.addEventListener('unhandledrejection', function(ev){
+      const out = document.getElementById('result');
+      if (out) out.textContent = 'Unhandled promise rejection: ' + (ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason));
+      console.error('UnhandledRejection', ev);
+    });
+
+    // --- Firebase module imports (top-level; valid in modules) ---
+    import { initializeApp as _initApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase as _getDatabase, ref as _ref, get as _get, set as _set,
+             update as _update, remove as _remove, onValue as _onValue } 
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // Firebase configuration (dent-dept-dtr)
+    const firebaseConfig = {
+      apiKey: "AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
+      authDomain: "dent-dept-dtr.firebaseapp.com",
+      databaseURL: "https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "dent-dept-dtr",
+      storageBucket: "dent-dept-dtr.firebasestorage.app",
+      messagingSenderId: "537868899036",
+      appId: "1:537868899036:web:8dd6dfa10493533616da19",
+      measurementId: "G-KD8DF5EDSW"
+    };
+
+    // initialize
+    const app = _initApp(firebaseConfig);
+    const db = _getDatabase(app);
+
+    // elements (guarded)
+    const $ = id => document.getElementById(id);
+    const videoEl = $('video');
+    const resultDiv = $('result');
+    const profileBox = $('profile');
+    const profileName = $('profile-name');
+    const profileEmail = $('profile-email');
+    const profileMode = $('profile-mode');
+    const profilePeriod = $('profile-period');
+    const profileStatus = $('profile-status');
+
+    const startBtn = $('start-btn');
+    const stopBtn = $('stop-btn');
+    const exportBtn = $('export-btn');
+    const printBtn = $('print-btn');
+    const resetBtn = $('reset-btn');
+    const logsSearch = $('logs-search');
+    const logsBody = $('logs-body');
+
+    const eventInput = $('event-input');
+    const saveEventBtn = $('save-event');
+    const morningOnInput = $('morning-on');
+    const afternoonOnInput = $('afternoon-on');
+    const graceMinInput = $('grace-min');
+    const saveTimesBtn = $('save-times');
+
+    const filterPeriod = $('filter-period');
+    const filterStatus = $('filter-status');
+    const pageSizeSelect = $('page-size');
+    const prevPageBtn = $('prev-page');
+    const nextPageBtn = $('next-page');
+    const pageInfo = $('page-info');
+
+    const successSound = $('success-sound');
+
+    // ZXing
+    if (typeof ZXing === 'undefined') {
+      if (resultDiv) resultDiv.textContent = 'ZXing library not loaded — scanner will not work.';
+      console.warn('ZXing not found. Make sure the UMD script loaded.');
+    }
+    const codeReader = (typeof ZXing !== 'undefined') ? new ZXing.BrowserQRCodeReader() : null;
+
+    // state
+    let scanning = false;
+    let scanCooldowns = {};
+    let logsData = [];
+    let currentPage = 1;
+    let pageSize = parseInt((pageSizeSelect && pageSizeSelect.value) ? pageSizeSelect.value : '10');
+
+    const settingsRef = _ref(db, `settings/ci`);
+
+    // Time helpers (Manila)
+    function manilaNow(){
+      const now = new Date();
+      const str = now.toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+      return new Date(str);
+    }
+    function pad(n){ return n < 10 ? '0'+n : ''+n; }
+    function todayYMD(d = manilaNow()){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+    function timeHMS(d = manilaNow()){ return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+    function timeHM(d = manilaNow()){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+    function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/[&<>"]+/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]||m)); }
+
+    // Clock
+    const clockElem = $('clock');
+    function updateClock(){ if(!clockElem) return; const now = manilaNow(); clockElem.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`; }
+    setInterval(updateClock, 1000); updateClock();
+
+    function setResult(msg, status='info'){
+      const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+      if (resultDiv) resultDiv.textContent = `${icons[status]||''} ${msg}`;
+      console.log('setResult', status, msg);
+    }
+
+    // Scanner
+    async function startScanner(){
+      if (!codeReader) { setResult('Scanner not available (ZXing not loaded).', 'error'); return; }
+      if (scanning) return;
+      try {
+        const devices = await codeReader.listVideoInputDevices();
+        if (!devices || devices.length === 0) { setResult('No camera devices found.', 'error'); return; }
+        const back = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
+        scanning = true; setResult('Point camera to a QR code.', 'info');
+        codeReader.decodeFromVideoDevice(back.deviceId, videoEl, (result, err) => {
+          if (result && result.getText) handleScan(result.getText());
+          else if (err && !(err instanceof ZXing.NotFoundException)) { console.error('ZXing error:', err); setResult('Camera error: ' + (err.message||err), 'error'); }
+        });
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = false;
+      } catch (e) {
+        console.error('startScanner', e);
+        setResult('Camera error: ' + (e.message || e), 'error');
+      }
+    }
+    function stopScanner(){
+      try { if (codeReader) codeReader.reset(); } catch(e){}
+      scanning = false;
+      setResult('Scanner stopped.', 'info');
+      if (startBtn) startBtn.disabled = false;
+      if (stopBtn) stopBtn.disabled = true;
+      if (profileBox) profileBox.style.display = 'none';
+    }
+
+    // Settings load/save
+    async function loadSettings(){
+      try {
+        const snap = await _get(settingsRef);
+        const s = snap.exists() ? snap.val() : {};
+        if (eventInput) eventInput.value = s.event || '';
+        if (s.times){
+          if (morningOnInput) morningOnInput.value = s.times.morningOn || '08:00';
+          if (afternoonOnInput) afternoonOnInput.value = s.times.afternoonOn || '13:00';
+          if (graceMinInput) graceMinInput.value = s.times.graceMin != null ? s.times.graceMin : 5;
+        } else {
+          if (morningOnInput) morningOnInput.value = s.morningOn || '08:00';
+          if (afternoonOnInput) afternoonOnInput.value = s.afternoonOn || '13:00';
+          if (graceMinInput) graceMinInput.value = s.graceMin != null ? s.graceMin : 5;
+        }
+        return s;
+      } catch(err){
+        console.error('loadSettings', err);
+        setResult('Failed to load settings: ' + (err.message || err), 'error');
+        return {};
+      }
+    }
+
+    if (saveEventBtn) saveEventBtn.addEventListener('click', async ()=>{
+      const val = (eventInput && eventInput.value || '').trim();
+      try {
+        await _set(_ref(db, `settings/ci/event`), val);
+        setResult('Event saved.', 'success');
+      } catch(err){
+        console.error('saveEvent', err);
+        setResult('Failed to save event: ' + (err.message || err), 'error');
+      }
+    });
+
+    if (saveTimesBtn) saveTimesBtn.addEventListener('click', async ()=>{
+      const morning = (morningOnInput && morningOnInput.value || '08:00').trim();
+      const afternoon = (afternoonOnInput && afternoonOnInput.value || '13:00').trim();
+      const grace = parseInt(graceMinInput && graceMinInput.value || '5');
+      try {
+        await _set(_ref(db, `settings/ci/times`), { morningOn: morning, afternoonOn: afternoon, graceMin: isNaN(grace)?5:grace });
+        setResult('Time settings saved.', 'success');
+      } catch(err){
+        console.error('saveTimes', err);
+        setResult('Failed to save times: ' + (err.message || err), 'error');
+      }
+    });
+
+    function isOnTime(scanHM, onTimeHM, graceMin){
+      const [sh,sm] = (scanHM || '00:00').split(':').map(Number);
+      const [oh,om] = (onTimeHM || '00:00').split(':').map(Number);
+      const scanMinutes = sh*60 + sm;
+      const onMinutes = oh*60 + om;
+      return scanMinutes <= (onMinutes + (graceMin||0));
+    }
+    function periodForDate(d = manilaNow()){
+      return d.getHours() < 12 ? 'Morning' : 'Afternoon';
+    }
+
+    async function handleScan(text){
+      if (!scanning) return;
+      const raw = String(text || '').trim(); if (!raw) return;
+      const nowMs = Date.now(); if (scanCooldowns[raw] && (nowMs - scanCooldowns[raw] < 3000)) return; scanCooldowns[raw] = nowMs;
+
+      const parts = raw.split('|');
+      if(parts.length !== 2) { setResult('Invalid QR format. Expected "UID|MODE".', 'error'); if (profileBox) profileBox.style.display = 'none'; return; }
+      const uid = parts[0].trim(); const mode = parts[1].trim().toUpperCase();
+      if (!uid || (mode !== 'IN' && mode !== 'OUT')) { setResult('Invalid UID or Mode in QR code.', 'error'); if (profileBox) profileBox.style.display = 'none'; return; }
+
+      setResult(`Processing UID: ${uid} Mode: ${mode}`, 'info');
+      if (profileBox) profileBox.style.display = 'none';
+
+      const dateStr = todayYMD(); const timeStr = timeHMS(); const hm = timeHM(); const period = periodForDate();
+
+      try{
+        const profSnap = await _get(_ref(db, `users/${uid}/profile`));
+        if (!profSnap.exists()){ setResult(`UID ${uid} not registered.`, 'error'); return; }
+        const profile = profSnap.val();
+
+        const sSnap = await _get(_ref(db, `settings/ci/times`));
+        const s = sSnap.exists() ? sSnap.val() : { morningOn:'08:00', afternoonOn:'13:00', graceMin:5 };
+        const onTimeHM = period === 'Morning' ? (s.morningOn||'08:00') : (s.afternoonOn||'13:00');
+        const grace = s.graceMin != null ? s.graceMin : 5;
+        const statusIn = isOnTime(hm, onTimeHM, grace) ? 'On Time' : 'Late';
+
+        const dtrRef = _ref(db, `users/${uid}/dtr/${dateStr}/${period.toLowerCase()}`);
+        const dtrSnap = await _get(dtrRef);
+        const dtrData = dtrSnap.exists() ? dtrSnap.val() : {};
+
+        if (mode === 'IN'){
+          if (dtrData.timeIn){
+            setResult(`Already TIME IN for ${period} at ${dtrData.timeIn}`, 'warning');
+            if (profileName) profileName.textContent = profile.name || '';
+            if (profileEmail) profileEmail.textContent = profile.email || '';
+            if (profileMode) profileMode.textContent = 'IN';
+            if (profilePeriod) profilePeriod.textContent = period;
+            if (profileStatus) profileStatus.textContent = dtrData.timeInStatus || '';
+            if (profileBox) profileBox.style.display = 'block';
+            return;
+          }
+
+          await _update(dtrRef, {
+            timeIn: timeStr,
+            tsIn: Date.now(),
+            timeInStatus: statusIn
+          });
+
+           await _set(_ref(db, `timeIns/${dateStr}/${uid}_${period}`), {
+            uid, name: profile.name||'', email: profile.email||'', course: profile.course||'', year: profile.year||'', date: dateStr, time: timeStr, ts: Date.now(), period, status: statusIn
+          });
+
+          setResult(`Recorded TIME IN (${period}) for ${profile.name} at ${timeStr} — ${statusIn}`, 'success');
+          try { if (successSound) successSound.play(); } catch(e){}
+
+          if (profileName) profileName.textContent = profile.name || '';
+          if (profileEmail) profileEmail.textContent = profile.email || '';
+          if (profileMode) profileMode.textContent = 'IN';
+          if (profilePeriod) profilePeriod.textContent = period;
+          if (profileStatus) profileStatus.textContent = statusIn;
+          if (profileBox) profileBox.style.display = 'block';
+
+        } else if (mode === 'OUT'){
+          if (!dtrData.timeIn){
+            setResult(`Cannot TIME OUT — user has not TIMED IN for ${period}`, 'error');
+            return;
+          }
+          if (dtrData.timeOut){
+            setResult(`Already TIME OUT for ${period} at ${dtrData.timeOut}`, 'warning');
+            if (profileName) profileName.textContent = profile.name || '';
+            if (profileEmail) profileEmail.textContent = profile.email || '';
+            if (profileMode) profileMode.textContent = 'OUT';
+            if (profilePeriod) profilePeriod.textContent = period;
+            if (profileStatus) profileStatus.textContent = dtrData.timeInStatus || '';
+            if (profileBox) profileBox.style.display = 'block';
+            return;
+          }
+
+          await _update(dtrRef, {
+            timeOut: timeStr,
+            tsOut: Date.now()
+          });
+
+          await _set(_ref(db, `timeOuts/${dateStr}/${uid}_${period}`), {
+            uid, name: profile.name||'', email: profile.email||'', course: profile.course||'', year: profile.year||'', date: dateStr, time: timeStr, ts: Date.now(), period
+          });
+
+          setResult(`Recorded TIME OUT (${period}) for ${profile.name} at ${timeStr}`, 'success');
+          try { if (successSound) successSound.play(); } catch(e){}
+
+          if (profileName) profileName.textContent = profile.name || '';
+          if (profileEmail) profileEmail.textContent = profile.email || '';
+          if (profileMode) profileMode.textContent = 'OUT';
+          if (profilePeriod) profilePeriod.textContent = period;
+          if (profileStatus) profileStatus.textContent = dtrData.timeInStatus || '';
+          if (profileBox) profileBox.style.display = 'block';
+        }
+
+      } catch(err){
+        console.error('Error saving DTR:', err);
+        setResult('Error saving time record: ' + (err.message || err), 'error');
+        if (profileBox) profileBox.style.display = 'none';
+      }
+    }
+
+    function flattenLogs(insObj, outsObj){
+      const rows = [];
+      const keys = new Set([...Object.keys(insObj||{}), ...Object.keys(outsObj||{})]);
+      keys.forEach(k => {
+        const inEntry = insObj && insObj[k] ? insObj[k] : null;
+        const outEntry = outsObj && outsObj[k] ? outsObj[k] : null;
+        const parts = k.split('_');
+        const uid = parts[0] || '';
+        const period = parts[1] || '';
+        rows.push({
+          name: inEntry?.name || outEntry?.name || '',
+          course: inEntry?.course || outEntry?.course || '',
+          year: inEntry?.year || outEntry?.year || '',
+          timeIn: inEntry?.time || '',
+          timeOut: outEntry?.time || '',
+          date: inEntry?.date || outEntry?.date || todayYMD(),
+          period: period,
+          timeInStatus: inEntry?.status || ''
+        });
+      });
+      rows.sort((a,b) => {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      return rows;
+    }
+
+    function getFilteredLogs() {
+      const ft = (logsSearch && logsSearch.value || "").toLowerCase();
+      const periodFilter = (filterPeriod && filterPeriod.value || "");
+      const statusFilter = (filterStatus && filterStatus.value || "");
+
+      return logsData.filter(e => {
+        const matchText =
+          (e.name || '').toLowerCase().includes(ft) ||
+          (e.course || '').toLowerCase().includes(ft) ||
+          ('' + (e.year || '')).toLowerCase().includes(ft) ||
+          (e.date || '').toLowerCase().includes(ft);
+
+        const matchPeriod = !periodFilter || e.period === periodFilter;
+        const matchStatus = !statusFilter || (e.timeInStatus === statusFilter);
+
+        return matchText && matchPeriod && matchStatus;
+      });
+    }
+
+    function renderLogsUI(){
+      const filtered = getFilteredLogs();
+      const totalRows = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * pageSize;
+      const pageSlice = filtered.slice(start, start + pageSize);
+
+      if (logsBody) {
+        if (pageSlice.length === 0){
+          logsBody.innerHTML = '<tr><td colspan="7" class="no-records">No records</td></tr>';
+        } else {
+          logsBody.innerHTML = pageSlice.map(entry => {
+            const courseYear = `${escapeHtml(entry.course||'')} ${entry.year?('/ '+escapeHtml(entry.year)) : ''}`;
+            const tine = escapeHtml(entry.timeIn||'—');
+            const tout = escapeHtml(entry.timeOut||'—');
+            return `<tr>
+              <td>${escapeHtml(entry.name)}</td>
+              <td>${courseYear}</td>
+              <td>${tine}</td>
+              <td>${tout}</td>
+              <td>${escapeHtml(entry.date)}</td>
+              <td>${escapeHtml(entry.period)}</td>
+              <td>${escapeHtml(entry.timeInStatus||'')}</td>
+            </tr>`;
+          }).join('');
+        }
+      }
+      if (pageInfo) pageInfo.textContent = `Page ${currentPage} of ${totalPages || 1}`;
+    }
+
+    async function listenLogs(){
+      const dateStr = todayYMD();
+      const insRef = _ref(db, `timeIns/${dateStr}`);
+      const outsRef = _ref(db, `timeOuts/${dateStr}`);
+
+      function update(){
+        Promise.all([_get(insRef), _get(outsRef)]).then(([inSnap, outSnap]) => {
+          const ins = inSnap.exists() ? inSnap.val() : {};
+          const outs = outSnap.exists() ? outSnap.val() : {};
+          logsData = flattenLogs(ins, outs);
+          currentPage = 1;
+          renderLogsUI();
+        }).catch(err => { console.error('update logs', err); setResult('Failed to load logs', 'error'); });
+      }
+
+      _onValue(insRef, update);
+      _onValue(outsRef, update);
+      update();
+    }
+
+    function exportCSV(){
+      const filtered = getFilteredLogs();
+      if (!filtered || filtered.length === 0) { alert('No data to export'); return; }
+      const headers = ['Name','Course','Year','Time In','Time Out','Date','Period','Status'];
+      const rows = filtered.map(r => [r.name, r.course, r.year, r.timeIn, r.timeOut, r.date, r.period, r.timeInStatus || '']);
+      let csv = headers.join(',') + '\r\n';
+      rows.forEach(cols => { csv += cols.map(c => '"' + String(c||'').replace(/"/g,'""') + '"').join(',') + '\r\n'; });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      const eventNameFile = ((eventInput && eventInput.value) || "DTR").replace(/[^a-z0-9]/gi, "_");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${eventNameFile}_${todayYMD()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function printLogs(){
+      const eventName = (eventInput && eventInput.value) || "DTR Logs";
+      const filtered = getFilteredLogs();
+
+      const html = `
+<html>
+<head>
+<title>${escapeHtml(eventName)} — ${todayYMD()}</title>
+<style>
+  body { font-family: Arial; color:#111; padding:20px }
+  h2 { margin:0 0 6px 0 }
+  h4 { margin:2px 0 12px 0; font-weight:normal; color:#444 }
+  table { width:100%; border-collapse: collapse; margin-top:10px }
+  th,td { border:1px solid #ccc; padding:6px; text-align:left; font-size:12px }
+  th { background:#eee }
+</style>
+</head>
+<body>
+  <h2>${escapeHtml(eventName)}</h2>
+  <h4>Date: ${todayYMD()}</h4>
+
+  <table>
+  <thead>
+    <tr>
+      <th>Name</th><th>Course</th><th>Year</th><th>Time In</th><th>Time Out</th><th>Period</th><th>Status</th>
+    </tr>
+  </thead>
+   <tbody>
+    ${filtered.map(r => `<tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.course)}</td>
+      <td>${escapeHtml(r.year)}</td>
+      <td>${escapeHtml(r.timeIn)}</td>
+      <td>${escapeHtml(r.timeOut)}</td>
+      <td>${escapeHtml(r.period)}</td>
+      <td>${escapeHtml(r.timeInStatus||'')}</td>
+    </tr>`).join('')}
+  </tbody>
+  </table>
+</body>
+</html>
+  `;
+
+      const w = window.open('', '_blank', 'width=900,height=700');
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      w.print();
+    }
+
+    async function resetToday(){
+      if (!confirm('Archive today\\'s logs and clear live results?')) return;
+      const dateStr = todayYMD();
+      const timeInsRef = _ref(db, `timeIns/${dateStr}`);
+      const timeOutsRef = _ref(db, `timeOuts/${dateStr}`);
+      const archiveRef = _ref(db, `archives/${dateStr}`);
+      try {
+        const [insSnap, outsSnap] = await Promise.all([_get(timeInsRef), _get(timeOutsRef)]);
+        const data = { timeIns: insSnap.exists() ? insSnap.val() : {}, timeOuts: outsSnap.exists() ? outsSnap.val() : {} };
+        if ((!data.timeIns || Object.keys(data.timeIns).length === 0) && (!data.timeOuts || Object.keys(data.timeOuts).length === 0)) { alert('No logs to archive for today.'); return; }
+        await _set(archiveRef, data);
+        await Promise.all([_remove(timeInsRef), _remove(timeOutsRef)]);
+        setResult('Archived and cleared today\\'s logs.', 'success');
+      } catch(err){
+        console.error('resetToday', err);
+        setResult('Failed to reset: ' + (err.message || err), 'error');
+      }
+    }
+
+    // Event listeners
+    if (startBtn) startBtn.addEventListener('click', startScanner);
+    if (stopBtn) stopBtn.addEventListener('click', stopScanner);
+    if (exportBtn) exportBtn.addEventListener('click', exportCSV);
+    if (printBtn) printBtn.addEventListener('click', printLogs);
+    if (resetBtn) resetBtn.addEventListener('click', resetToday);
+
+    if (logsSearch) logsSearch.addEventListener('input', () => { currentPage = 1; renderLogsUI(); });
+
+    if (pageSizeSelect) pageSizeSelect.addEventListener('change', (e) => {
+      pageSize = parseInt(e.target.value || '10');
+      currentPage = 1;
+      renderLogsUI();
+    });
+
+    if (prevPageBtn) prevPageBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderLogsUI(); } });
+    if (nextPageBtn) nextPageBtn.addEventListener('click', () => { const filtered = getFilteredLogs(); const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize)); if (currentPage < totalPages) { currentPage++; renderLogsUI(); } });
+
+    if (filterPeriod) filterPeriod.addEventListener('change', () => { currentPage = 1; renderLogsUI(); });
+    if (filterStatus) filterStatus.addEventListener('change', () => { currentPage = 1; renderLogsUI(); });
+
+    // Start listeners & load settings
+    listenLogs();
+    loadSettings().then(()=> { renderLogsUI(); }).catch(err => console.error(err));
+
+  </script>
+</body>
+</html>
