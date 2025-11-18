@@ -137,17 +137,18 @@
   import { getDatabase, ref, onValue, get, set, remove, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyAmzmNMEYiBOBztFEPS_0Sbu00wyRpGfYk",
-    authDomain: "dtr-for-ci.firebaseapp.com",
-    databaseURL: "https://dtr-for-ci-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "dtr-for-ci",
-    storageBucket: "dtr-for-ci.firebasestorage.app",
-    messagingSenderId: "986157220435",
-    appId: "1:986157220435:web:cc8d3b92af4edd185abca6",
-    measurementId: "G-FL59MT9KSZ"
-  };
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  apiKey: "AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
+  authDomain: "dent-dept-dtr.firebaseapp.com",
+  databaseURL: "https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dent-dept-dtr",
+  storageBucket: "dent-dept-dtr.firebasestorage.app",
+  messagingSenderId: "537868899036",
+  appId: "1:537868899036:web:8dd6dfa10493533616da19",
+  measurementId: "G-KD8DF5EDSW"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
   // Elements
   const videoEl = document.getElementById('video');
