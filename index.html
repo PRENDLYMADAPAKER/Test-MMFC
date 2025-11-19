@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin Attendance Panel</title>
+
+<!-- ZXing (global UMD) -->
+<script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
+
+<style>
+:root {--glass: rgba(255,255,255,0.6);}
+html,body{height:100%;margin:0;font-family:Inter,Arial,Helvetica,sans-serif;}
+body{background: linear-gradient(135deg,#ffffff 0%,#ffe6f0 45%,#e9d0ff 100%); min-height:100vh;}
+#topbar{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;}
+#topbar h1{margin:0;font-size:20px;}
+#logo{width:56px;height:56px;object-fit:contain;opacity:0.95;}
+#container{max-width:1200px;margin:18px auto;padding:0 12px;display:flex;gap:20px;flex-wrap:wrap;}
+.card{background:rgba(255,255,255,0.58);backdrop-filter:blur(6px);padding:14px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,0.06);}
+.left{flex:0 0 340px;min-width:280px;}
+.right{flex:1;min-width:300px;}
+#video{width:100%;height:260px;background:#000;border-radius:6px;object-fit:cover;}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+select,input{padding:8px;border-radius:6px;border:1px solid rgba(0,0,0,0.08);width:100%;}
+button{padding:10px 12px;border-radius:6px;border:0;background:linear-gradient(90deg,#b76bdc,#7b38c3);color:#fff;cursor:pointer;}
+button[disabled]{opacity:.55;cursor:not-allowed;}
+.table-wrap{overflow:auto;margin-top:8px;}
+table{width:100%;border-collapse:collapse;background:transparent;}
+th,td{padding:12px;border-bottom:1px solid rgba(0,0,0,0.06);text-align:left;vertical-align:top;}
+th{background:rgba(255,255,255,0.25);font-weight:700;}
+.time-grid{display:flex;gap:6px;flex-direction:column;}
+.small{font-size:12px;color:#555;}
+#toast{position:fixed;right:20px;top:90px;padding:12px 16px;border-radius:8px;color:#fff;display:none;z-index:999;}
+#toast.success{background:linear-gradient(90deg,#2ecc71,#27ae60);}
+#toast.error{background:linear-gradient(90deg,#e74c3c,#c0392b);}
+@media(max-width:900px){ .left, .right{width:100%;} #video{height:200px;} }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<header id="topbar">
+<h1>Attendance Admin</h1>
+<img id="logo" src="YOUR_LOGO_HERE.png" alt="logo">
+</header>
+
+<main id="container">
+<section class="left card">
+<h3>QR Scanner</h3>
+<label for="session">Session</label>
+<select id="session">
+<option value="morning">Morning</option>
+<option value="afternoon">Afternoon</option>
+</select>
+<div class="controls">
+<button id="startBtn">Start Scan</button>
+<button id="stopBtn" disabled>Stop Scan</button>
+<button id="exportBtn">Save CSV</button>
+<button id="printBtn">Print</button>
+<button id="resetBtn">Reset Today</button>
+</div>
+<video id="video" muted playsinline></video>
+<div class="small">Camera preview — allow camera access</div>
+</section>
+
+<section class="right card">
+<input id="search" placeholder="Search name | course | year level" />
+<div class="table-wrap card" style="padding:0;margin-top:8px;">
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Course</th>
+<th>Year</th>
+<th>Time In</th>
+<th>Time Out</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+</div>
+</section>
+</main>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, onValue, get, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
+  authDomain: "dent-dept-dtr.firebaseapp.com",
+  databaseURL: "https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dent-dept-dtr",
+  storageBucket: "dent-dept-dtr.appspot.com",
+  messagingSenderId: "537868899036",
+  appId: "1:537868899036:web:8dd6dfa10493533616da19",
+  measurementId: "G-KD8DF5EDSW"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const exportBtn = document.getElementById('exportBtn');
+const printBtn = document.getElementById('printBtn');
+const resetBtn = document.getElementById('resetBtn');
+const sessionSelect = document.getElementById('session');
+const videoElem = document.getElementById('video');
+const searchInput = document.getElementById('search');
+const tableBody = document.getElementById('tableBody');
+const toast = document.getElementById('toast');
+
+function showToast(msg,type='success'){
+  toast.textContent=msg;
+  toast.className='';
+  toast.classList.add(type==='success'?'success':'error');
+  toast.style.display='block';
+  setTimeout(()=>{ toast.style.display='none'; },2600);
+}
+
+function getDateKey(){ return new Date().toISOString().slice(0,10); }
+
+let codeReader = null;
+async function startScan(){
+  codeReader = new ZXing.BrowserMultiFormatReader();
+  const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+  const deviceId = devices.length ? devices[devices.length-1].deviceId : undefined;
+  codeReader.decodeFromConstraints({ video: { deviceId: { exact: deviceId }, facingMode: 'environment' }}, videoElem, (result, err)=>{
+    if(result) handleScan(result.getText());
+  });
+  startBtn.disabled=true; stopBtn.disabled=false; showToast('Scanner started');
+}
+function stopScan(){ if(codeReader) codeReader.reset(); startBtn.disabled=false; stopBtn.disabled=true; showToast('Scanner stopped'); }
+
+async function handleScan(uid){
+  const dateKey = getDateKey();
+  const sess = sessionSelect.value;
+  const userRef = ref(db,`attendance/${dateKey}/${uid}`);
+  const snap = await get(userRef);
+  const data = snap.exists()?snap.val():{};
+  const now = new Date();
+  const time = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(sess==='morning'){
+    if(!data.morningIn){ await set(userRef,{...data,morningIn:time}); showToast(`Time In Morning ${time}`); return; }
+    if(!data.morningOut){ await set(userRef,{...data,morningOut:time}); showToast(`Time Out Morning ${time}`); return; }
+    showToast('Morning session completed', 'error'); return;
+  }else{
+    if(!data.afternoonIn){ await set(userRef,{...data,afternoonIn:time}); showToast(`Time In Afternoon ${time}`); return; }
+    if(!data.afternoonOut){ await set(userRef,{...data,afternoonOut:time}); showToast(`Time Out Afternoon ${time}`); return; }
+    showToast('Afternoon session completed','error'); return;
+  }
+}
+
+let tableData = {};
+function loadTable(){
+  const dateKey = getDateKey();
+  const todayRef = ref(db,`attendance/${dateKey}`);
+  onValue(todayRef,snap=>{
+    tableBody.innerHTML='';
+    tableData = snap.exists()?snap.val():{};
+    const q = (searchInput.value||'').toLowerCase();
+    for(const uid in tableData){
+      const rec = tableData[uid];
+      if(q && !`${uid} ${rec.name||''} ${rec.course||''} ${rec.year||''}`.toLowerCase().includes(q)) continue;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${uid}</td>
+        <td>${rec.course||'-'}</td>
+        <td>${rec.year||'-'}</td>
+        <td>${rec.morningIn||''}<br>${rec.afternoonIn||''}</td>
+        <td>${rec.morningOut||''}<br>${rec.afternoonOut||''}</td>
+        <td>${dateKey}</td>`;
+      tableBody.appendChild(tr);
+    }
+  });
+}
+searchInput.addEventListener('input',loadTable);
+loadTable();
+
+startBtn.addEventListener('click',startScan);
+stopBtn.addEventListener('click',stopScan);
+resetBtn.addEventListener('click',()=>{ tableBody.innerHTML=''; showToast('Admin view reset'); });
+printBtn.addEventListener('click',()=>window.print());
+exportBtn.addEventListener('click',()=>{
+  const rows=[['Name','Course','Year','Time In(M)','Time Out(M)','Time In(A)','Time Out(A)','Date'].join(',')];
+  for(const uid in tableData){
+    const rec=tableData[uid];
+    rows.push([uid,rec.course||'',rec.year||'',rec.morningIn||'',rec.morningOut||'',rec.afternoonIn||'',rec.afternoonOut||'',getDateKey()].join(','));
+  }
+  const blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`attendance-${getDateKey()}.csv`; a.click();
+});
+
+</script>
+</body>
+  </html>
