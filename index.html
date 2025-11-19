@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin Attendance Panel</title>
+
+<!-- ZXing QR Reader -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+
+<style>
+  /* ---------- Theme (Option A: Modern Glass) ---------- */
+  :root{
+    --bg1: #ffffff;
+    --bg2: #ffe6f0;
+    --accent1: #b76bdc;
+    --accent2: #7b38c3;
+    --glass: rgba(255,255,255,0.6);
+    --muted: #666;
+    --card-shadow: 0 10px 30px rgba(59,20,88,0.08);
+    --radius: 12px;
+    --maxw: 1200px;
+  }
+
+  html,body{height:100%;margin:0;font-family:Inter,Arial,Helvetica,sans-serif;}
+  body{
+    background: linear-gradient(135deg,var(--bg1) 0%, var(--bg2) 45%, #e9d0ff 100%);
+    min-height:100vh;
+    padding:20px 12px;
+  }
+
+  /* Top bar */
+  #topbar{
+    max-width:var(--maxw);
+    margin:0 auto 18px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 18px;border-radius:14px;
+    background:linear-gradient(180deg,rgba(255,255,255,0.75),rgba(255,255,255,0.55));
+    box-shadow:var(--card-shadow);
+    backdrop-filter:blur(6px) saturate(120%);
+  }
+  #topbar h1{margin:0;font-size:20px;font-weight:700}
+  #logo{
+    width:56px;height:56px;object-fit:contain;border-radius:8px;
+    background:linear-gradient(180deg,rgba(255,255,255,0.6),rgba(255,255,255,0.2));
+    box-shadow:0 6px 18px rgba(0,0,0,0.06);
+  }
+
+  /* layout */
+  #container{max-width:var(--maxw);margin:8px auto;display:flex;gap:20px;flex-wrap:wrap}
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,0.62),rgba(255,255,255,0.42));
+    padding:16px;border-radius:var(--radius);box-shadow:var(--card-shadow);
+    border:1px solid rgba(255,255,255,0.5);
+    backdrop-filter:blur(8px) saturate(120%);
+  }
+  .left{flex:0 0 360px;min-width:260px}
+  .right{flex:1;min-width:320px;display:flex;flex-direction:column}
+
+  /* scanner */
+  #video{
+    width:100%;height:280px;background:#000;border-radius:10px;object-fit:cover;
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  label{display:block;margin:8px 0 6px;font-size:13px;color:var(--muted)}
+  select,input{padding:10px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);width:100%;background:rgba(255,255,255,0.85)}
+  input#search{
+    padding:12px 14px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)
+  }
+  button{
+    padding:10px 14px;border-radius:10px;border:0;
+    background:linear-gradient(90deg,var(--accent1),var(--accent2));
+    color:#fff;font-weight:600;cursor:pointer;
+    box-shadow:0 6px 16px rgba(123,56,195,0.16);
+  }
+  button.ghost{
+    background:transparent;color:var(--accent2);
+    border:1px solid rgba(123,56,195,0.12);box-shadow:none;
+  }
+  button[disabled]{opacity:.5;cursor:not-allowed}
+
+  .muted{color:var(--muted);font-size:13px}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+
+  /* table */
+  .table-wrap{overflow:auto;margin-top:10px;border-radius:10px;border:1px solid rgba(0,0,0,0.04)}
+  table{width:100%;border-collapse:collapse;min-width:720px;background:transparent}
+  thead th{
+    position:sticky;top:0;
+    background:rgba(255,255,255,0.85);
+    text-align:left;padding:12px 14px;font-weight:700;
+    border-bottom:1px solid rgba(0,0,0,0.06)
+  }
+  tbody td{padding:12px 14px;border-bottom:1px solid rgba(0,0,0,0.05)}
+  tbody tr:nth-child(even){background:rgba(255,255,255,0.45)}
+
+  /* summary bar */
+  #summaryBar{
+    margin-top:12px;padding:10px 12px;border-radius:10px;
+    background:rgba(255,255,255,0.4);font-size:13px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+
+  /* toast */
+  #toast{
+    position:fixed;right:20px;top:90px;padding:12px 16px;border-radius:10px;
+    color:#fff;display:none;z-index:999
+  }
+  #toast.success{background:linear-gradient(90deg,#2ecc71,#27ae60)}
+  #toast.error{background:linear-gradient(90deg,#e74c3c,#c0392b)}
+
+  /* PRINT MODE */
+  #printHeader{display:none}
+  @media print {
+    body *{visibility:hidden;}
+    #printHeader,#printHeader *{visibility:visible;}
+    #printArea,#printArea *{visibility:visible;}
+    #printHeader{
+      position:fixed;left:0;top:0;width:100%;padding:10px;background:white;z-index:1000;
+      border-bottom:1px solid #ccc;
+    }
+    #printArea{
+      position:fixed;left:0;top:120px;width:100%;
+      padding:0 10px;
+    }
+    table{width:100%;min-width:0;border-collapse:collapse;background:white}
+    thead th,tbody td{
+      padding:8px;border:1px solid #ccc;
+      background:white;color:#000;
+    }
+    thead th{background:#f2f2f2}
+    @page{margin:18mm;}
+  }
+</style>
+</head>
+
+<body>
+<div id="toast"></div>
+
+<!-- PRINT HEADER -->
+<div id="printHeader">
+  <div style="max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 14px;">
+    <img id="printLogo" src="YOUR_LOGO_HERE.png" style="width:64px;height:64px;object-fit:contain;border-radius:8px;">
+    <div>
+      <div style="font-size:20px;font-weight:700;">Clinic Attendance Report</div>
+      <div id="printMeta" style="font-size:13px;color:#444;"></div>
+    </div>
+  </div>
+</div>
+
+<header id="topbar">
+  <h1>Attendance Admin</h1>
+  <img id="logo" src="YOUR_LOGO_HERE.png" alt="logo">
+</header>
+
+<main id="container">
+
+  <!-- LEFT PANEL -->
+  <section class="left card">
+    <h3>QR Scanner</h3>
+
+    <label>Session</label>
+    <select id="session">
+      <option value="morning">Morning</option>
+      <option value="afternoon">Afternoon</option>
+    </select>
+
+    <div class="controls">
+      <button id="startBtn">Start Scan</button>
+      <button id="stopBtn" disabled class="ghost">Stop Scan</button>
+      <button id="resetBtn" class="ghost">Reset Today (view)</button>
+    </div>
+
+    <video id="video" muted playsinline autoplay></video>
+    <div class="muted" style="margin-top:8px">Camera preview — allow access.</div>
+
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button id="exportBtn" style="flex:1">Save CSV</button>
+      <button id="printBtn" style="flex:1">Print</button>
+    </div>
+  </section>
+
+  <!-- RIGHT PANEL -->
+  <section class="right">
+    <div class="card" style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+      <input id="search" placeholder="Search name | course | year" style="flex:1">
+      <div style="font-size:13px;color:#444;">Today: <strong id="todayLabel"></strong></div>
+    </div>
+
+    <div class="card table-wrap" style="padding:0;">
+      <div id="printArea" style="padding:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Course</th>
+              <th>Year</th>
+              <th>Time In</th>
+              <th>Time Out</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="summaryBar" class="card">
+      <div>Records shown: <strong id="countShown">0</strong></div>
+      <div>Total today: <strong id="totalCount">0</strong></div>
+    </div>
+  </section>
+
+</main>
+
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, onValue, get, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+/* -------------------- FIREBASE CONFIG (same as your file) -------------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
+  authDomain: "dent-dept-dtr.firebaseapp.com",
+  databaseURL: "https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dent-dept-dtr",
+  storageBucket: "dent-dept-dtr.firebasestorage.app",
+  messagingSenderId: "537868899036",
+  appId: "1:537868899036:web:8dd6dfa10493533616da19",
+  measurementId: "G-KD8DF5EDSW"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* -------------------- ELEMENTS -------------------- */
+const startBtn = document.getElementById('startBtn');
+const stopBtn  = document.getElementById('stopBtn');
+const exportBtn = document.getElementById('exportBtn');
+const printBtn = document.getElementById('printBtn');
+const resetBtn = document.getElementById('resetBtn');
+const sessionSelect = document.getElementById('session');
+const videoEl = document.getElementById('video');
+const searchInput = document.getElementById('search');
+const tableBody = document.getElementById('tableBody');
+const toast = document.getElementById('toast');
+const todayLabel = document.getElementById('todayLabel');
+const countShown = document.getElementById('countShown');
+const totalCount = document.getElementById('totalCount');
+const printHeader = document.getElementById('printHeader');
+const printMeta = document.getElementById('printMeta');
+const printLogo = document.getElementById('printLogo');
+const screenLogo = document.getElementById('logo');
+
+/* -------------------- Helpers -------------------- */
+function showToast(msg, type='success'){
+  toast.textContent = msg;
+  toast.className = type;
+  toast.style.display = 'block';
+  setTimeout(()=> toast.style.display='none', 2600);
+}
+function getDateKey(date = new Date()){ return date.toISOString().slice(0,10); }
+todayLabel.textContent = getDateKey();
+
+/* Format time */
+function formatTimeForDisplay(d){
+  let hr = d.getHours() % 12;
+  if (hr === 0) hr = 12;
+  const min = String(d.getMinutes()).padStart(2,'0');
+  const isAM = d.getHours() < 12;
+  return `${hr}:${min} ${isAM?'AM':'PM'}`;
+}
+
+/* Escape HTML (for table display safety) */
+function escapeHtml(v){
+  return String(v||'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;');
+}
+
+/* -------------------- Scanner -------------------- */
+const codeReader = new ZXing.BrowserQRCodeReader();
+let scanning = false;
+
+async function startScanner(){
+  try{
+    if (scanning) return;
+    const devices = await codeReader.listVideoInputDevices();
+    if (!devices.length){ showToast("No camera detected","error"); return; }
+
+    const backCam = devices.find(d=>/back|rear|environment/i.test(d.label)) || devices[0];
+    scanning = true; showToast("Scanner started");
+    startBtn.disabled = true; stopBtn.disabled = false;
+
+    codeReader.decodeFromVideoDevice(backCam.deviceId, videoEl, (result)=>{
+      if(result && result.getText) handleScan(result.getText());
+    });
+  }catch(err){
+    showToast("Camera error","error");
+  }
+}
+
+function stopScanner(){
+  try{ codeReader.reset(); }catch{}
+  scanning=false; showToast("Scanner stopped");
+  startBtn.disabled=false; stopBtn.disabled=true;
+}
+
+/* -------------------- Parse QR -------------------- */
+function parseUID(text){
+  try{ const j = JSON.parse(text); if(j.uid) return j.uid; }catch{}
+  if (/^[\w-]{3,64}$/.test(text)) return text;
+  return null;
+}
+
+/* -------------------- Handle Scan -------------------- */
+async function handleScan(text){
+  const uid = parseUID(text);
+  if(!uid){ showToast("Invalid QR","error"); return; }
+
+  const dateKey = getDateKey();
+  const userRef = ref(db, `attendance/${dateKey}/${uid}`);
+
+  const snap = await get(userRef);
+  const data = snap.exists() ? snap.val() : {};
+  const stamp = Date.now();
+  const now = new Date();
+  const sess = sessionSelect.value;
+
+  if(sess==="morning"){
+    if(!data.morningIn){ await set(userRef,{...data,morningIn:stamp,date:dateKey}); showToast("Morning IN: "+formatTimeForDisplay(now)); return; }
+    if(!data.morningOut){ await set(userRef,{...data,morningOut:stamp,date:dateKey}); showToast("Morning OUT: "+formatTimeForDisplay(now)); return; }
+    showToast("Morning done","error"); return;
+  }
+
+  if(!data.afternoonIn){ await set(userRef,{...data,afternoonIn:stamp,date:dateKey}); showToast("Afternoon IN: "+formatTimeForDisplay(now)); return; }
+  if(!data.afternoonOut){ await set(userRef,{...data,afternoonOut:stamp,date:dateKey}); showToast("Afternoon OUT: "+formatTimeForDisplay(now)); return; }
+  showToast("Afternoon done","error");
+}
+
+/* -------------------- Table Render -------------------- */
+let currentTable = {};
+
+function attachTable(){
+  const r = ref(db, `attendance/${getDateKey()}`);
+  onValue(r, snap => {
+    currentTable = snap.exists() ? snap.val() : {};
+    renderTable();
+  });
+}
+attachTable();
+
+function renderTable(){
+  const q = searchInput.value.toLowerCase();
+  tableBody.innerHTML = '';
+
+  const keys = Object.keys(currentTable).sort();
+  if(!keys.length){
+    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;">No records today</td></tr>`;
+    countShown.textContent=0; totalCount.textContent=0; return;
+  }
+
+  let shown=0;
+
+  for(const uid of keys){
+    const r = currentTable[uid];
+    const name = r.name || uid;
+    const course = r.course||'';
+    const year = r.year||'';
+    const morningIn = r.morningIn ? formatTimeForDisplay(new Date(r.morningIn)) : '';
+    const morningOut = r.morningOut ? formatTimeForDisplay(new Date(r.morningOut)) : '';
+    const afternoonIn = r.afternoonIn ? formatTimeForDisplay(new Date(r.afternoonIn)) : '';
+    const afternoonOut = r.afternoonOut ? formatTimeForDisplay(new Date(r.afternoonOut)) : '';
+    const date = r.date || getDateKey();
+
+    const hay = `${name} ${uid} ${course} ${year}`.toLowerCase();
+    if(q && !hay.includes(q)) continue;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(name)}</td>
+      <td>${escapeHtml(course)}</td>
+      <td>${escapeHtml(year)}</td>
+      <td>${escapeHtml(morningIn)}${morningIn&&afternoonIn?'<br>':''}${escapeHtml(afternoonIn)}</td>
+      <td>${escapeHtml(morningOut)}${morningOut&&afternoonOut?'<br>':''}${escapeHtml(afternoonOut)}</td>
+      <td>${escapeHtml(date)}</td>`;
+    tableBody.appendChild(tr);
+    shown++;
+  }
+
+  countShown.textContent = shown;
+  totalCount.textContent = keys.length;
+}
+
+/* -------------------- Export CSV -------------------- */
+exportBtn.addEventListener('click',()=>{
+  const lines=[];
+  lines.push("Name,Course,Year,Morning In,Morning Out,Afternoon In,Afternoon Out,Date");
+
+  const q = searchInput.value.toLowerCase();
+  for(const uid of Object.keys(currentTable)){
+    const r=currentTable[uid];
+    const name=r.name||uid;
+    const hay = `${name} ${uid} ${r.course||''} ${r.year||''}`.toLowerCase();
+    if(q && !hay.includes(q)) continue;
+
+    lines.push([
+      name,
+      r.course||'',
+      r.year||'',
+      r.morningIn?formatTimeForDisplay(new Date(r.morningIn)):'',
+      r.morningOut?formatTimeForDisplay(new Date(r.morningOut)):'',
+      r.afternoonIn?formatTimeForDisplay(new Date(r.afternoonIn)):'',
+      r.afternoonOut?formatTimeForDisplay(new Date(r.afternoonOut)):'',
+      r.date||getDateKey()
+    ].join(','));
+  }
+
+  const blob=new Blob([lines.join("\n")],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`attendance-${getDateKey()}.csv`;
+  a.click();
+});
+
+/* -------------------- PRINT -------------------- */
+function preparePrint(){
+  printLogo.src = screenLogo.src;
+  const sess = sessionSelect.value[0].toUpperCase() + sessionSelect.value.slice(1);
+  printMeta.textContent = `Date: ${getDateKey()} | Session: ${sess}`;
+}
+
+printBtn.addEventListener('click',()=>{
+  preparePrint();
+  setTimeout(()=>window.print(),150);
+});
+
+/* -------------------- Reset -------------------- */
+resetBtn.addEventListener('click',()=>{
+  currentTable={};
+  renderTable();
+  showToast("View reset");
+});
+
+/* -------------------- Bind -------------------- */
+startBtn.addEventListener('click',startScanner);
+stopBtn.addEventListener('click',stopScanner);
+searchInput.addEventListener('input',renderTable);
+</script>
+</body>
+</html>
