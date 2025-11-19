@@ -194,32 +194,23 @@ async function startScan() {
     ensureZXing();
     codeReader = new ZXing.BrowserMultiFormatReader();
 
-    // Get available cameras
     const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
 
-    // Prefer back camera if available
-    let deviceId = null;
-    if (devices.length > 1) {
-      deviceId = devices[devices.length - 1].deviceId; // back camera
-    } else if (devices.length === 1) {
-      deviceId = devices[0].deviceId;
-    }
+    // Pick last device = back camera on Android
+    let deviceId = devices.length > 1 
+      ? devices[devices.length - 1].deviceId 
+      : devices[0]?.deviceId;
 
-    // GitHub Pages–friendly constraints
-    const constraints = {
-      video: deviceId
-        ? { deviceId: { exact: deviceId } }
-        : { facingMode: "environment" }
-    };
+    console.log("Selected camera:", deviceId);
 
-    console.log("Camera constraints:", constraints);
-
-    // Start scanner
+    // 🔥 VERCEL COMPATIBLE — NO CONSTRAINTS, LET THE BROWSER DECIDE
     await codeReader.decodeFromVideoDevice(
       deviceId,
       videoElem,
       (result, err) => {
-        if (result) handleScannedText(result.getText());
+        if (result) {
+          handleScannedText(result.getText());
+        }
       }
     );
 
@@ -231,7 +222,7 @@ async function startScan() {
     console.error("Camera error:", err);
 
     showToast(
-      "Camera failed. On GitHub Pages ensure:\n• HTTPS\n• Camera permission\n• Chrome/Edge recommended",
+      "Camera failed. This may be due to:\n• Browser blocked camera\n• Incognito mode\n• Wrong camera device\n• Vercel permission policy",
       "error"
     );
 
