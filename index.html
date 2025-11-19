@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin Attendance Panel</title>
+
+<!-- ZXing (global) -->
+<script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
+
+<!-- Firebase modular (ES modules) used inside module script below -->
+<style>
+  /* ===== GRADIENT BACKGROUND ===== */
+  :root {
+    --glass: rgba(255,255,255,0.6);
+  }
+  html,body{height:100%;margin:0;font-family:Inter,Arial,Helvetica,sans-serif}
+  body{
+    background: linear-gradient(135deg,#ffffff 0%,#ffe6f0 45%,#e9d0ff 100%);
+    min-height:100vh;
+  }
+
+  /* top bar */
+  #topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:16px 24px;
+  }
+  #topbar h1{margin:0;font-size:20px}
+  #logo{width:56px;height:56px;object-fit:contain;opacity:0.95}
+
+  /* layout */
+  #container{max-width:1200px;margin:18px auto;padding:0 12px;display:flex;gap:20px;flex-wrap:wrap}
+  .card{background:rgba(255,255,255,0.58);backdrop-filter:blur(6px);padding:14px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  .left{flex:0 0 340px;min-width:280px}
+  .right{flex:1;min-width:300px}
+
+  /* scanner */
+  #video{width:100%;height:260px;background:#000;border-radius:6px;object-fit:cover}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  select,input{padding:8px;border-radius:6px;border:1px solid rgba(0,0,0,0.08);width:100%}
+  button{padding:10px 12px;border-radius:6px;border:0;background:linear-gradient(90deg,#b76bdc,#7b38c3);color:#fff;cursor:pointer}
+  button[disabled]{opacity:.55;cursor:not-allowed}
+
+  /* actions */
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+  /* table */
+  .table-wrap{overflow:auto;margin-top:8px}
+  table{width:100%;border-collapse:collapse;background:transparent}
+  th,td{padding:12px;border-bottom:1px solid rgba(0,0,0,0.06);text-align:left;vertical-align:top}
+  th{background:rgba(255,255,255,0.25);font-weight:700}
+  .time-grid{display:flex;gap:12px;flex-direction:column}
+  .small{font-size:12px;color:#555}
+
+  /* toast */
+  #toast{position:fixed;right:20px;top:90px;padding:12px 16px;border-radius:8px;color:#fff;display:none;z-index:999}
+  #toast.success{background:linear-gradient(90deg,#2ecc71,#27ae60)}
+  #toast.error{background:linear-gradient(90deg,#e74c3c,#c0392b)}
+
+  /* responsive */
+  @media(max-width:900px){
+    #container{padding:12px}
+    .left{width:100%}
+    .right{width:100%}
+    #video{height:200px}
+  }
+</style>
+</head>
+<body>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <header id="topbar">
+    <h1>Attendance Admin</h1>
+    <!-- Replace with your logo file (keep small) -->
+    <img id="logo" src="YOUR_LOGO_HERE.png" alt="logo">
+  </header>
+
+  <main id="container">
+    <!-- left: scanner + controls -->
+    <section class="left card">
+      <h3 style="margin:0 0 10px 0">QR Scanner</h3>
+
+      <label for="session">Session</label>
+      <select id="session" aria-label="session selector">
+        <option value="morning">Morning</option>
+        <option value="afternoon">Afternoon</option>
+      </select>
+
+      <div style="height:10px"></div>
+
+      <div class="controls">
+        <button id="startBtn">Start Scan</button>
+        <button id="stopBtn" disabled>Stop Scan</button>
+        <button id="exportBtn">Save CSV</button>
+        <button id="printBtn">Print</button>
+        <button id="resetBtn">Reset Today (view)</button>
+      </div>
+
+      <div style="height:12px"></div>
+      <video id="video" muted playsinline></video>
+      <div class="small" style="margin-top:8px">Camera preview — ZXing requests high-res if available. Allow camera access.</div>
+    </section>
+
+    <!-- right: search + table -->
+    <section class="right card">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <input id="search" placeholder="Search name | course | year level" style="flex:1" />
+        <div style="min-width:120px;text-align:right;color:#444;font-size:13px">Today: <strong id="todayLabel"></strong></div>
+      </div>
+
+      <div class="table-wrap card" style="padding:0">
+        <table aria-live="polite">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Course</th>
+              <th>Year</th>
+              <th style="min-width:160px">Time In<br/><span class="small">(Morning / Afternoon)</span></th>
+              <th style="min-width:160px">Time Out<br/><span class="small">(Morning / Afternoon)</span></th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- rows inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+<!-- JS: module so we can use firebase modular imports -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, onValue, get, set, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+/* ---------- firebase config (your provided config) ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
+  authDomain: "dent-dept-dtr.firebaseapp.com",
+  databaseURL: "https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dent-dept-dtr",
+  storageBucket: "dent-dept-dtr.firebasedestage.app",
+  messagingSenderId: "537868899036",
+  appId: "1:537868899036:web:8dd6dfa10493533616da19",
+  measurementId: "G-KD8DF5EDSW"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ---------- helpers & UI refs ---------- */
+const startBtn = document.getElementById('startBtn');
+const stopBtn  = document.getElementById('stopBtn');
+const exportBtn = document.getElementById('exportBtn');
+const printBtn = document.getElementById('printBtn');
+const resetBtn = document.getElementById('resetBtn');
+const sessionSelect = document.getElementById('session');
+const videoElem = document.getElementById('video');
+const searchInput = document.getElementById('search');
+const tableBody = document.getElementById('tableBody');
+const toast = document.getElementById('toast');
+const todayLabel = document.getElementById('todayLabel');
+
+function showToast(msg, type='success'){
+  toast.textContent = msg;
+  toast.className = '';
+  toast.classList.add(type==='success' ? 'success' : 'error');
+  toast.style.display = 'block';
+  setTimeout(()=>{ toast.style.display='none' }, 2600);
+}
+
+/* ---------- date key for 'today' ---------- */
+function getDateKey(date = new Date()){
+  const iso = date.toISOString().slice(0,10); // YYYY-MM-DD
+  return iso;
+}
+todayLabel.textContent = getDateKey();
+
+/* ---------- ZXing scanner setup ---------- */
+let codeReader = null;
+let currentStream = null;
+
+function ensureZXing(){
+  // global from unpkg UMD: ZXing
+  if(!window.ZXing || !window.ZXing.BrowserMultiFormatReader){
+    throw new Error('ZXing library missing');
+  }
+}
+
+async function startScan(){
+  try{
+    ensureZXing();
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    // list devices via static helper
+    const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+    // pick back camera if available
+    let deviceId = devices.length ? devices[devices.length-1].deviceId : undefined;
+
+    // request high-res when possible (constraints)
+    const constraints = { video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 3840 }, height: { ideal: 2160 }, facingMode: 'environment' } };
+
+    // start decoding from video element; callback fires per frame/scan
+    await codeReader.decodeFromConstraints(constraints, videoElem, (result, err) => {
+      if (result) {
+        handleScannedText(result.getText());
+      }
+      // ignore NotFound errors, only log others
+      if (err && !(err instanceof ZXing.NotFoundException)) {
+        console.debug('ZXing error', err);
+      }
+    });
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    showToast('Scanner started', 'success');
+  }catch(err){
+    console.error(err);
+    showToast('Camera start failed — allow camera or use HTTPS/localhost', 'error');
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+  }
+}
+
+function stopScan(){
+  try{
+    if(codeReader) codeReader.reset(); // stops camera and decoding
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    showToast('Scanner stopped','success');
+  }catch(e){
+    console.warn(e);
+  }
+}
+
+/* ---------- attendance logic (Option C: scanner decides based on missing fields) ---------- */
+async function handleScannedText(text){
+  // Accepts plain uid or JSON {"uid":"..."}
+  const uid = parseUID(text);
+  if(!uid){
+    showToast('Invalid QR payload', 'error');
+    return;
+  }
+
+  const dateKey = getDateKey();
+  const userRef = ref(db, `attendance/${dateKey}/${uid}`);
+  try{
+    const snap = await get(userRef);
+    const data = snap.exists() ? snap.val() : {};
+    const nowTs = Date.now();
+    const now = new Date(nowTs);
+    // format times: 8:00M or 12:00nn formatting per your request
+    const timeLabel = formatTimeForDisplay(now);
+
+    const sess = sessionSelect.value; // 'morning' or 'afternoon'
+
+    // Ensure no duplicate: morning: morningIn & morningOut; afternoon: afternoonIn & afternoonOut
+    if(sess === 'morning'){
+      if(!data.morningIn){
+        // record morningIn
+        const updated = {...data, morningIn: nowTs, date: dateKey};
+        await set(userRef, updated);
+        appendScanLog(uid, dateKey, 'morningIn', nowTs);
+        showToast(`Time In (Morning) ${timeLabel}`, 'success');
+        return;
+      }
+      if(!data.morningOut){
+        const updated = {...data, morningOut: nowTs, date: dateKey};
+        await set(userRef, updated);
+        appendScanLog(uid, dateKey, 'morningOut', nowTs);
+        showToast(`Time Out (Morning) ${timeLabel}`, 'success');
+        return;
+      }
+      showToast('Morning already has In & Out', 'error');
+      return;
+    } else { // afternoon
+      if(!data.afternoonIn){
+        const updated = {...data, afternoonIn: nowTs, date: dateKey};
+        await set(userRef, updated);
+        appendScanLog(uid, dateKey, 'afternoonIn', nowTs);
+        showToast(`Time In (Afternoon) ${timeLabel}`, 'success');
+        return;
+      }
+      if(!data.afternoonOut){
+        const updated = {...data, afternoonOut: nowTs, date: dateKey};
+        await set(userRef, updated);
+        appendScanLog(uid, dateKey, 'afternoonOut', nowTs);
+        showToast(`Time Out (Afternoon) ${timeLabel}`, 'success');
+        return;
+      }
+      showToast('Afternoon already has In & Out', 'error');
+      return;
+    }
+
+  }catch(err){
+    console.error('write error', err);
+    showToast('Failed to record scan', 'error');
+  }
+}
+
+function parseUID(text){
+  // try parse JSON { "uid": "..." } or accept plain token/uid
+  try{
+    const j = JSON.parse(text);
+    if(j && j.uid) return String(j.uid);
+  }catch(e){}
+  // plain alnum tokens allowed:
+  if(/^[\w-]{3,64}$/.test(text)) return text;
+  return null;
+}
+
+function formatTimeForDisplay(d){
+  // returns strings like "8:00M" or "12:00nn"
+  const hours = d.getHours();
+  let hr = hours % 12;
+  if(hr === 0) hr = 12;
+  const minutes = d.getMinutes().toString().padStart(2,'0');
+  const isAM = hours < 12;
+  // determine suffix per your spec: "M" for morning, "nn" for noon/pm (user asked examples 8:00M 12:00nn)
+  const suffix = (!isAM && hours === 12) ? 'nn' : (isAM && hours === 12 ? 'M' : (isAM ? 'M' : 'nn'));
+  return `${hr}:${minutes}${suffix}`;
+}
+
+/* append simple audit log */
+async function appendScanLog(uid, dateKey, action, ts){
+  try{
+    const logRef = ref(db, `scans/${dateKey}/${ts}_${uid}`);
+    await set(logRef, { uid, date: dateKey, action, ts });
+  }catch(e){
+    console.warn('log append failed', e);
+  }
+}
+
+/* ---------- table: load today's attendance and render ---------- */
+let currentTableData = {}; // { uid: record }
+
+function attachTableListener(){
+  const dateKey = getDateKey();
+  const todayRef = ref(db, `attendance/${dateKey}`);
+  onValue(todayRef, snapshot => {
+    const val = snapshot.exists() ? snapshot.val() : {};
+    currentTableData = val;
+    renderTable();
+  }, err => {
+    console.error('table onValue err', err);
+  });
+}
+
+function renderTable(){
+  const q = (searchInput.value||'').trim().toLowerCase();
+  tableBody.innerHTML = '';
+  const rows = Object.keys(currentTableData || {}).sort(); // uid order
+  if(rows.length === 0){
+    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#666">No records for today</td></tr>`;
+    return;
+  }
+  for(const uid of rows){
+    const rec = currentTableData[uid] || {};
+    // build display values
+    const name = rec.name || uid;
+    const course = rec.course || '-';
+    const year = rec.year || '-';
+    const morningIn = rec.morningIn ? formatTimeForDisplay(new Date(rec.morningIn)) : '';
+    const morningOut = rec.morningOut ? formatTimeForDisplay(new Date(rec.morningOut)) : '';
+    const afternoonIn = rec.afternoonIn ? formatTimeForDisplay(new Date(rec.afternoonIn)) : '';
+    const afternoonOut = rec.afternoonOut ? formatTimeForDisplay(new Date(rec.afternoonOut)) : '';
+    const date = rec.date || getDateKey();
+
+    const combinedIn = `${morningIn}${morningIn && afternoonIn ? '<br/>' : (morningIn||afternoonIn) ? '<br/>' : ''}${afternoonIn}`;
+    // but to better match requested layout, we'll show morning then afternoon in stacked fashion:
+    const timeInCell = `<div class="time-grid"><div>${morningIn||''} <span class="small">${morningIn? 'morning':''}</span></div><div>${afternoonIn||''} <span class="small">${afternoonIn? 'afternoon':''}</span></div></div>`;
+    const timeOutCell = `<div class="time-grid"><div>${morningOut||''} <span class="small">${morningOut? 'morning':''}</span></div><div>${afternoonOut||''} <span class="small">${afternoonOut? 'afternoon':''}</span></div></div>`;
+
+    // search filter: check name, uid, course, year
+    const hay = `${name} ${uid} ${course} ${year}`.toLowerCase();
+    if(q && !hay.includes(q)) continue;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(name)}</td>
+      <td>${escapeHtml(course)}</td>
+      <td>${escapeHtml(year)}</td>
+      <td>${timeInCell}</td>
+      <td>${timeOutCell}</td>
+      <td>${escapeHtml(date)}</td>
+    `;
+    tableBody.appendChild(tr);
+  }
+}
+
+/* basic escaping */
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+/* ---------- UI bindings ---------- */
+startBtn.addEventListener('click', startScan);
+stopBtn.addEventListener('click', stopScan);
+exportBtn.addEventListener('click', exportCSV);
+printBtn.addEventListener('click', () => window.print());
+resetBtn.addEventListener('click', () => { currentTableData={}; renderTable(); showToast('Admin view reset. (DB unchanged)'); });
+searchInput.addEventListener('input', renderTable);
+
+/* ---------- CSV export: builds from currentTableData ---------- */
+function exportCSV(){
+  const dateKey = getDateKey();
+  const rows = [];
+  rows.push(['Name','Course','Year Level','Time In (Morning)','Time Out (Morning)','Time In (Afternoon)','Time Out (Afternoon)','Date'].join(','));
+  for(const uid of Object.keys(currentTableData || {})){
+    const r = currentTableData[uid] || {};
+    const row = [
+      csvCell(r.name || uid),
+      csvCell(r.course || ''),
+      csvCell(r.year || ''),
+      csvCell(r.morningIn ? formatTimeForCSV(new Date(r.morningIn)) : ''),
+      csvCell(r.morningOut ? formatTimeForCSV(new Date(r.morningOut)) : ''),
+      csvCell(r.afternoonIn ? formatTimeForCSV(new Date(r.afternoonIn)) : ''),
+      csvCell(r.afternoonOut ? formatTimeForCSV(new Date(r.afternoonOut)) : ''),
+      csvCell(r.date || dateKey)
+    ].join(',');
+    rows.push(row);
+  }
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `attendance-${getDateKey()}.csv`;
+  a.click();
+}
+function csvCell(v){ return `"${String(v||'').replace(/"/g,'""')}"`;}
+function formatTimeForCSV(d){
+  // keep human-friendly
+  const hr = d.getHours() % 12 || 12;
+  const min = String(d.getMinutes()).padStart(2,'0');
+  const ampm = d.getHours() < 12 ? 'AM' : 'PM';
+  return `${hr}:${min} ${ampm}`;
+}
+
+/* ---------- initial attach ---------- */
+attachTableListener();
+
+/* ---------- cleanup when page unloads ---------- */
+window.addEventListener('beforeunload', () => {
+  try{ if(codeReader) codeReader.reset(); }catch(e){}
+});
+</script>
+</body>
+        </html>
