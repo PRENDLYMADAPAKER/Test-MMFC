@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Attendance Panel</title>
+
+<!-- ZXing QR Scanner -->
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+
+<style>
+/* ===== GRADIENT BACKGROUND ===== */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, white, pink, purple);
+  background-size: cover;
+  min-height: 100vh;
+}
+
+/* ===== TOP BAR ===== */
+#topbar {
+  width: 100%;
+  padding: 15px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#logo {
+  width: 70px;
+  opacity: 0.9;
+}
+
+/* ===== CONTAINER ===== */
+#container {
+  width: 95%;
+  max-width: 1100px;
+  margin: auto;
+  margin-top: 20px;
+}
+
+/* ===== SCANNER TILE ===== */
+.tile {
+  background: rgba(255,255,255,0.45);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+#video {
+  width: 100%;
+  border-radius: 8px;
+  background: #000;
+}
+
+/* ===== BUTTONS ===== */
+button {
+  padding: 10px 16px;
+  margin: 5px;
+  background: purple;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 15px;
+  cursor: pointer;
+}
+button:disabled {
+  background: #666;
+}
+
+/* ===== SEARCH ===== */
+#search {
+  padding: 10px;
+  width: 100%;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+/* ===== TABLE ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255,255,255,0.55);
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background: rgba(255,255,255,0.25);
+  font-weight: bold;
+}
+
+/* ===== NOTIFICATION ===== */
+#notif {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: green;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 5px;
+  display: none;
+  z-index: 999;
+}
+
+/* ERROR NOTIF */
+.error {
+  background: red !important;
+}
+
+/* MOBILE FIX */
+@media (max-width: 600px) {
+  #logo { width: 55px; }
+}
+</style>
+</head>
+
+<body>
+
+<div id="notif"></div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h2>Admin Attendance Panel</h2>
+  <img id="logo" src="YOUR_LOGO_HERE.png" alt="logo">
+</div>
+
+<div id="container">
+
+  <!-- SCANNER TILE -->
+  <div class="tile">
+    <h3>QR Scanner</h3>
+
+    <select id="session">
+      <option value="morning">Morning</option>
+      <option value="afternoon">Afternoon</option>
+    </select>
+
+    <br><br>
+
+    <button id="startScan">Start Scan</button>
+    <button id="stopScan" disabled>Stop Scan</button>
+
+    <video id="video"></video>
+  </div>
+
+  <!-- SEARCH + ACTIONS -->
+  <div class="tile">
+    <input type="text" id="search" placeholder="Search Name, Course, Year Level...">
+
+    <button onclick="exportCSV()">Save CSV</button>
+    <button onclick="printPage()">Print</button>
+    <button onclick="resetToday()">Reset Today</button>
+  </div>
+
+  <!-- TABLE TILE -->
+  <div class="tile">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Course</th>
+          <th>Year</th>
+          <th>Time In</th>
+          <th>Time Out</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, onValue, update, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+/* ===== YOUR FIREBASE CONFIG ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
+  authDomain: "dent-dept-dtr.firebaseapp.com",
+  databaseURL: "https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dent-dept-dtr",
+  storageBucket: "dent-dept-dtr.firebasestorage.app",
+  messagingSenderId: "537868899036",
+  appId: "1:537868899036:web:8dd6dfa10493533616da19",
+  measurementId: "G-KD8DF5EDSW"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ===== NOTIFICATION ===== */
+function notify(msg, error = false) {
+  let n = document.getElementById("notif");
+  n.innerText = msg;
+  if (error) n.classList.add("error");
+  else n.classList.remove("error");
+  n.style.display = "block";
+  setTimeout(() => n.style.display = "none", 2000);
+}
+
+/* ===== QR SCANNER ===== */
+let codeReader = new ZXing.BrowserMultiFormatReader();
+let scanning = false;
+
+document.getElementById("startScan").onclick = async () => {
+  scanning = true;
+  document.getElementById("startScan").disabled = true;
+  document.getElementById("stopScan").disabled = false;
+
+  const video = document.getElementById("video");
+  const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+  const backCam = devices[devices.length - 1]?.deviceId;
+
+  codeReader.decodeFromVideoDevice(backCam, video, (result, err) => {
+    if (result) {
+      handleScan(result.getText());
+    }
+  });
+};
+
+document.getElementById("stopScan").onclick = () => {
+  scanning = false;
+  codeReader.reset();
+  document.getElementById("startScan").disabled = false;
+  document.getElementById("stopScan").disabled = true;
+};
+
+/* ===== HANDLE SCAN ===== */
+async function handleScan(userId) {
+  let sessionType = document.getElementById("session").value;
+  let today = new Date().toLocaleDateString("en-US");
+
+  let userRef = ref(db, "attendance/" + userId + "/" + today + "/" + sessionType);
+  let snap = await get(userRef);
+
+  let now = new Date();
+  let time = now.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit' });
+
+  if (!snap.exists()) {
+    await set(userRef, { time_in: time, time_out: "" });
+    notify("Time In recorded!");
+  } else {
+    let data = snap.val();
+
+    if (!data.time_in) {
+      await update(userRef, { time_in: time });
+      notify("Time In recorded!");
+    } else if (!data.time_out) {
+      await update(userRef, { time_out: time });
+      notify("Time Out recorded!");
+    } else {
+      notify("Already completed!", true);
+    }
+  }
+}
+
+/* ===== TABLE UPDATER ===== */
+function loadTable() {
+  let table = document.getElementById("tableBody");
+  let searchVal = document.getElementById("search").value.toLowerCase();
+
+  onValue(ref(db, "attendance"), snapshot => {
+    table.innerHTML = "";
+
+    snapshot.forEach(user => {
+      let name = user.key;
+      let dateRecords = user.val();
+
+      Object.keys(dateRecords).forEach(date => {
+        let sessions = dateRecords[date];
+
+        Object.keys(sessions).forEach(sess => {
+          let rec = sessions[sess];
+
+          if (name.toLowerCase().includes(searchVal)) {
+            table.innerHTML += `
+              <tr>
+                <td>${name}</td>
+                <td>${rec.course || "-"}</td>
+                <td>${rec.year || "-"}</td>
+                <td>${rec.time_in || "-"}</td>
+                <td>${rec.time_out || "-"}</td>
+                <td>${date}</td>
+              </tr>
+            `;
+          }
+        });
+      });
+    });
+  });
+}
+
+document.getElementById("search").oninput = loadTable;
+loadTable();
+
+/* ===== RESET TODAY (ADMIN VIEW ONLY) ===== */
+function resetToday() {
+  let table = document.getElementById("tableBody");
+  table.innerHTML = "";
+  notify("Table reset (view only)");
+}
+
+/* ===== EXPORT CSV ===== */
+function exportCSV() {
+  let rows = document.querySelectorAll("table tr");
+  let csv = [];
+
+  rows.forEach(r => {
+    let cols = r.querySelectorAll("td, th");
+    let row = [];
+    cols.forEach(c => row.push(c.innerText));
+    csv.push(row.join(","));
+  });
+
+  let blob = new Blob([csv.join("\n")], { type: "text/csv" });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = "attendance.csv";
+  a.click();
+}
+
+/* ===== PRINT PAGE ===== */
+function printPage() {
+  window.print();
+}
+
+</script>
+
+</body>
+</html>
