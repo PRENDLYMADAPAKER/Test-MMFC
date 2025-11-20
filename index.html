@@ -287,51 +287,25 @@ tbody tr:nth-child(even){
     background:white !important;
   }
 
-   /* ----------------------------------------
-   FINAL MOBILE FIXES - CENTER CARDS, NO OVERLAP
------------------------------------------ */
-@media (max-width: 600px) {
+   /* ---------------------------------------
+   CENTER TILES ON MOBILE
+--------------------------------------- */
+@media (max-width: 820px) {
 
-  /* Fix container stacking */
   #container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    width: 100%;
+    align-items: center; /* centers stacked tiles */
   }
 
-  .left, .right {
-    width: 100% !important;
-    min-width: 0 !important;
+  .card,
+  .left,
+  .right {
+    max-width: 500px;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .card {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* Prevent table overflow */
-  .table-wrap {
-    width: 100%;
-    overflow-x: auto;
-  }
-
-  table {
-    width: 700px;
-  }
-
-  /* Fix scanner size */
-  #video {
-    height: 200px !important;
-    border-radius: 12px;
-  }
-
-  /* Fix top bar alignment */
-  #topbar {
-    flex-direction: column;
-    text-align: center;
-    gap: 10px;
+    margin-bottom: 14px;
   }
 }
 </style>
