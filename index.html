@@ -353,8 +353,10 @@ tbody tr:nth-child(even){
             <th>Name</th>
             <th>Course</th>
             <th>Year</th>
-            <th>Time In</th>
-            <th>Time Out</th>
+            <th>Morning In</th>
+            <th>Morning Out</th>
+            <th>Afternoon In</th>
+            <th>Afternoon Out</th>
             <th>Date</th>
           </tr>
         </thead>
@@ -625,13 +627,15 @@ function render(){
 
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td>${escapeHTML(name)}</td>
-      <td>${escapeHTML(course)}</td>
-      <td>${escapeHTML(year)}</td>
-      <td>${morningIn}${afternoonIn ? "<br>" + afternoonIn : ""}</td>
-      <td>${morningOut}${afternoonOut ? "<br>" + afternoonOut : ""}</td>
-      <td>${escapeHTML(r.date || getDateKey())}</td>
-    `;
+  <td>${escapeHTML(name)}</td>
+  <td>${escapeHTML(course)}</td>
+  <td>${escapeHTML(year)}</td>
+  <td>${morningIn}</td>
+  <td>${morningOut}</td>
+  <td>${afternoonIn}</td>
+  <td>${afternoonOut}</td>
+  <td>${escapeHTML(r.date || getDateKey())}</td>
+`;
     tableBody.appendChild(row);
     shown++;
   }
@@ -656,15 +660,15 @@ exportBtn.addEventListener("click",()=>{
     if(q && !hay.includes(q)) continue;
 
     lines.push([
-      `"${name.replaceAll('"','""')}"`,
-      `"${(course||"").replaceAll('"','""')}"`,
-      `"${(year||"").replaceAll('"','""')}"`,
-      r.morningIn?formatTime(new Date(r.morningIn)):"",
-      r.morningOut?formatTime(new Date(r.morningOut)):"",
-      r.afternoonIn?formatTime(new Date(r.afternoonIn)):"",
-      r.afternoonOut?formatTime(new Date(r.afternoonOut)):"",
-      r.date||getDateKey()
-    ].join(","));
+  `"${name.replaceAll('"','""')}"`,
+  `"${(course||"").replaceAll('"','""')}"`,
+  `"${(year||"").replaceAll('"','""')}"`,
+  morningIn,
+  morningOut,
+  afternoonIn,
+  afternoonOut,
+  r.date || getDateKey()
+].join(","));
   }
 
   const blob=new Blob([lines.join("\n")],{type:"text/csv"});
