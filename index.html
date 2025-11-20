@@ -286,6 +286,53 @@ tbody tr:nth-child(even){
     color:#000 !important;
     background:white !important;
   }
+
+   /* ----------------------------------------
+   FINAL MOBILE FIXES - CENTER CARDS, NO OVERLAP
+----------------------------------------- */
+@media (max-width: 600px) {
+
+  /* Fix container stacking */
+  #container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+  }
+
+  .left, .right {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .card {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Prevent table overflow */
+  .table-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 700px;
+  }
+
+  /* Fix scanner size */
+  #video {
+    height: 200px !important;
+    border-radius: 12px;
+  }
+
+  /* Fix top bar alignment */
+  #topbar {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
 }
 </style>
 </head>
