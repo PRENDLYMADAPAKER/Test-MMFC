@@ -514,20 +514,28 @@ async function handleScan(text){
 
     // Helper to save and include profile fields
     async function save(field){
-      // merge existing data, ensure we store name/course/year
-      const payload = {
-        ...data,
-        [field]: stamp,
-        date: dateKey,
-        // store profile snapshot so table can display it
-        name: profile.name || data.name || uid,
-        course: profile.course || data.course || "",
-        year: profile.year || data.year || ""
-      };
-      await set(refUser, payload);
-      showToast(
-        (field.includes("In") ? "Time In: " : "Time Out: ") + formatTime(now)
-      );
+
+  // Ensure profile is loaded
+  if (!profile || !profile.name) {
+    const profileSnap = await get(ref(db, `users/${uid}`));
+    if (profileSnap.exists()) profile = profileSnap.val();
+  }
+
+  const payload = {
+    ...data,
+    [field]: stamp,
+    date: dateKey,
+
+    name: profile?.name || "Unknown",
+    course: profile?.course || "",
+    year: profile?.year || ""
+  };
+
+  await set(refUser, payload);
+
+  showToast(
+    (field.includes("In") ? "Time In: " : "Time Out: ") + formatTime(now)
+  );
     }
 
     // Decide based on QR mode
