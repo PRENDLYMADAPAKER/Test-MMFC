@@ -8,15 +8,22 @@
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
+:root{
+  --primary:#7b38c3;
+  --bg:#f6f7fb;
+  --card:#ffffff;
+  --muted:#666;
+}
+
 body{
   margin:0;
   font-family:Arial,Helvetica,sans-serif;
-  background:#f4f4f4;
+  background:var(--bg);
 }
 
 #topbar{
   background:#fff;
-  border-bottom:3px solid #7b38c3;
+  border-bottom:3px solid var(--primary);
   padding:12px 20px;
   display:flex;
   justify-content:space-between;
@@ -30,30 +37,44 @@ body{
   margin:20px auto;
   display:flex;
   gap:16px;
+  padding:0 12px;
 }
 
 .card{
-  background:#fff;
+  background:var(--card);
   padding:16px;
-  border:1px solid #ccc;
-  border-radius:6px;
+  border:none;
+  border-radius:12px;
+  box-shadow:0 8px 20px rgba(0,0,0,.08);
 }
 
 .left{width:340px}
 .right{flex:1}
 
 button{
-  padding:10px;
+  padding:10px 12px;
   border:none;
-  background:#7b38c3;
+  background:var(--primary);
   color:#fff;
-  border-radius:4px;
+  border-radius:8px;
   cursor:pointer;
+  font-weight:600;
+  transition:.2s;
+}
+button:hover{
+  transform:translateY(-1px);
+  box-shadow:0 4px 10px rgba(0,0,0,.15);
+}
+button:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+  box-shadow:none;
+  transform:none;
 }
 button.ghost{
-  background:#fff;
-  color:#7b38c3;
-  border:1px solid #7b38c3;
+  background:transparent;
+  color:var(--primary);
+  border:1px solid var(--primary);
 }
 
 .controls{
@@ -68,20 +89,25 @@ video{
   height:240px;
   background:#000;
   margin-top:10px;
+  border-radius:10px;
 }
 
 table{
   width:100%;
   border-collapse:collapse;
   font-size:13px;
+  border-radius:10px;
+  overflow:hidden;
 }
 
 th,td{
   border:1px solid #000;
-  padding:6px;
+  padding:8px 6px;
 }
 
-th{background:#eee}
+th{
+  background:#f1ecfb;
+}
 
 #toast{
   position:fixed;
@@ -92,6 +118,8 @@ th{background:#eee}
   padding:10px 14px;
   display:none;
   z-index:999;
+  border-radius:10px;
+  box-shadow:0 10px 25px rgba(0,0,0,.25);
 }
 
 #loginScreen{
@@ -103,8 +131,30 @@ th{background:#eee}
   background:#eee;
 }
 
+#loginScreen input{
+  padding:10px;
+  width:260px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  outline:none;
+}
+
 .print-header{
   display:none;
+}
+
+#search{
+  padding:10px;
+  width:100%;
+  border-radius:10px;
+  border:1px solid #cfcfe6;
+  outline:none;
+  margin-bottom:10px;
+  box-sizing:border-box;
+}
+#search:focus{
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px rgba(123,56,195,.15);
 }
 
 /* PRINT */
@@ -128,7 +178,7 @@ th{background:#eee}
     <input id="loginUser" placeholder="Username"><br><br>
     <input id="loginPass" type="password" placeholder="Password"><br><br>
     <button id="loginBtn">Login</button>
-    <div id="loginError" style="color:red;display:none">Invalid credentials</div>
+    <div id="loginError" style="color:red;display:none;margin-top:10px">Invalid credentials</div>
   </div>
 </div>
 
@@ -145,9 +195,14 @@ th{background:#eee}
 <main id="container">
 
 <section class="left card">
-  <h4>QR Scanner</h4>
+  <h4 style="margin:0 0 6px 0">QR Scanner</h4>
 
-  <select id="session">
+  <!-- Scanner Status (NEW) -->
+  <div id="scanStatus" style="margin:6px 0 10px 0;font-weight:700;color:#e74c3c">
+    🔴 Scanner stopped
+  </div>
+
+  <select id="session" style="padding:10px;border-radius:10px;border:1px solid #cfcfe6;outline:none;width:100%">
     <option value="morning">Morning</option>
     <option value="afternoon">Afternoon</option>
   </select>
@@ -172,6 +227,9 @@ th{background:#eee}
     <p id="printDate"></p>
   </div>
 
+  <!-- Search (NEW) -->
+  <input id="search" placeholder="Search name..." />
+
   <table>
     <thead>
       <tr>
@@ -186,9 +244,9 @@ th{background:#eee}
 </section>
 
 </main>
-  </div>
+</div>
 
-  <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, get, set, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -208,6 +266,14 @@ function showToast(msg){
   toast.textContent=msg;
   toast.style.display="block";
   setTimeout(()=>toast.style.display="none",2500);
+}
+
+/* ===== SCANNER STATUS (NEW) ===== */
+const scanStatus=el("scanStatus");
+function setScanStatus(text,color){
+  if(!scanStatus) return;
+  scanStatus.textContent=text;
+  scanStatus.style.color=color;
 }
 
 /* ===== LOGIN ===== */
@@ -261,16 +327,34 @@ let lastScan={uid:null,ts:0};
 
 async function startScanner(){
   if(scanning) return;
-  const cams=await reader.listVideoInputDevices();
-  const cam=cams.find(c=>/rear|back|env/i.test(c.label))||cams[0];
-  reader.decodeFromVideoDevice(cam.deviceId,el("video"),res=>{
-    if(res) handleScan(res.getText());
-  });
-  scanning=true;
+  try{
+    const cams=await reader.listVideoInputDevices();
+    const cam=cams.find(c=>/rear|back|env/i.test(c.label))||cams[0];
+    reader.decodeFromVideoDevice(cam.deviceId,el("video"),res=>{
+      if(res) handleScan(res.getText());
+    });
+    scanning=true;
+
+    // UI toggles
+    el("startBtn").disabled=true;
+    el("stopBtn").disabled=false;
+
+    setScanStatus("🟢 Scanner active","#2ecc71");
+  }catch(e){
+    setScanStatus("❌ Camera error","#e74c3c");
+    showToast("Camera access failed");
+  }
 }
+
 function stopScanner(){
   reader.reset();
   scanning=false;
+
+  // UI toggles
+  el("startBtn").disabled=false;
+  el("stopBtn").disabled=true;
+
+  setScanStatus("🔴 Scanner stopped","#e74c3c");
 }
 el("startBtn").onclick=startScanner;
 el("stopBtn").onclick=stopScanner;
@@ -284,25 +368,45 @@ onValue(ref(db,ADMIN_PATH),s=>{
 
 /* ===== SCAN LOGIC ===== */
 async function handleScan(txt){
+  setScanStatus("⏳ Processing scan...","#f39c12");
+
   let qr;
-  try{qr=JSON.parse(txt);}catch{return;}
+  try{qr=JSON.parse(txt);}catch{
+    setScanStatus("❌ Invalid QR","#e74c3c");
+    return;
+  }
 
   const now=Date.now();
-  if(qr.uid===lastScan.uid && now-lastScan.ts<2000) return;
+  if(qr.uid===lastScan.uid && now-lastScan.ts<2000){
+    setScanStatus("🟢 Ready","#2ecc71");
+    return;
+  }
   lastScan={uid:qr.uid,ts:now};
 
   const userSnap=await get(ref(db,`users/${qr.uid}`));
-  if(!userSnap.exists()){showToast("Student not found");return;}
+  if(!userSnap.exists()){
+    showToast("Student not found");
+    setScanStatus("❌ Student not found","#e74c3c");
+    return;
+  }
 
   const row=store[qr.uid]||{};
   const sess=el("session").value;
   const inK=sess==="morning"?"morningIn":"afternoonIn";
   const outK=sess==="morning"?"morningOut":"afternoonOut";
 
-  if(qr.mode==="out" && !row[inK]){showToast("Time-In required");return;}
-  const key=qr.mode==="in"?inK:outK;
-  if(row[key]){showToast("Already recorded");return;}
+  if(qr.mode==="out" && !row[inK]){
+    showToast("Time-In required");
+    setScanStatus("❌ Time-In required","#e74c3c");
+    return;
+  }
 
+  const key=qr.mode==="in"?inK:outK;
+  if(row[key]){
+    showToast("Already recorded");
+    setScanStatus("❌ Already recorded","#e74c3c");
+    return;
+  }
   await set(ref(db,`${ADMIN_PATH}/${qr.uid}`),{
     ...row,
     ...userSnap.val(),
@@ -310,23 +414,43 @@ async function handleScan(txt){
   });
 
   showToast("Recorded");
+  setScanStatus("🟢 Ready","#2ecc71");
 }
 
 /* ===== RENDER ===== */
 function fmt(t){return t?new Date(t).toLocaleTimeString():'';}
+
 function render(){
-  el("tableBody").innerHTML=Object.values(store).map(r=>`
-    <tr>
-      <td>${r.name}</td><td>${r.course}</td><td>${r.year}</td>
-      <td>${fmt(r.morningIn)}</td><td>${fmt(r.morningOut)}</td>
-      <td>${fmt(r.afternoonIn)}</td><td>${fmt(r.afternoonOut)}</td>
-    </tr>`).join("");
+  const q=(el("search")?.value||"").toLowerCase();
+
+  el("tableBody").innerHTML=Object.values(store)
+    .filter(r=>(r.name||"").toLowerCase().includes(q))
+    .map(r=>{
+      const missM = r.morningIn && !r.morningOut;
+      const missA = r.afternoonIn && !r.afternoonOut;
+
+      const rowTint = (missM || missA) ? 'background:#fff3f3' : '';
+
+      return `
+      <tr style="${rowTint}">
+        <td>${r.name||""}</td>
+        <td>${r.course||""}</td>
+        <td>${r.year||""}</td>
+        <td>${fmt(r.morningIn)}</td>
+        <td style="color:${missM?'red':'inherit'}">${fmt(r.morningOut)}</td>
+        <td>${fmt(r.afternoonIn)}</td>
+        <td style="color:${missA?'red':'inherit'}">${fmt(r.afternoonOut)}</td>
+      </tr>`;
+    }).join("");
 }
+
+/* Live search (NEW) */
+el("search").oninput=render;
 
 /* ===== RESET (SAFE) ===== */
 el("resetBtn").onclick=async()=>{
   const pass=prompt("Enter admin password:");
-  if(pass!==LOGIN_PASS){showToast("Wrong password");return;}
+  if(pass!==LOGIN_PASS){showToast("Wrong password");setScanStatus("❌ Wrong password","#e74c3c");return;}
 
   // CSV BACKUP
   let csv="Name,Course,Year,Morning In,Morning Out,Afternoon In,Afternoon Out\n";
@@ -342,10 +466,11 @@ el("resetBtn").onclick=async()=>{
   if(!confirm("Reset ADMIN records for today?")) return;
   await remove(ref(db,ADMIN_PATH));
   showToast("Admin records reset");
+  setScanStatus("🟢 Ready","#2ecc71");
 };
 
 el("printBtn").onclick=()=>window.print();
 </script>
 
 </body>
-      </html>
+</html>
