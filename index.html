@@ -1,170 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<title>Admin Attendance Panel</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance Admin Panel</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
-:root{
-  --bg1:#ffffff;
-  --bg2:#ffe6f0;
-  --accent1:#b76bdc;
-  --accent2:#7b38c3;
-  --muted:#666;
-  --shadow:0 10px 30px rgba(59,20,88,0.08);
-  --radius:14px;
-  --maxw:1200px;
+body{
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  background:#f4f4f4;
 }
 
-html,body{
-  margin:0;height:100%;
-  font-family:Inter,Arial,sans-serif;
-  background:linear-gradient(135deg,var(--bg1),var(--bg2));
-}
-
-/* TOP BAR */
 #topbar{
-  max-width:var(--maxw);
-  margin:16px auto;
-  padding:12px 16px;
+  background:#fff;
+  border-bottom:3px solid #7b38c3;
+  padding:12px 20px;
   display:flex;
   justify-content:space-between;
   align-items:center;
-  border-radius:var(--radius);
-  background:rgba(255,255,255,.6);
-  backdrop-filter:blur(6px);
-  box-shadow:var(--shadow);
 }
-#logo{width:48px;height:48px;object-fit:contain;border-radius:8px}
 
-/* LAYOUT */
+#logo{height:42px}
+
 #container{
-  max-width:var(--maxw);
-  margin:0 auto;
+  max-width:1200px;
+  margin:20px auto;
   display:flex;
-  gap:18px;
-  padding-bottom:30px;
+  gap:16px;
 }
-.card{
-  border-radius:var(--radius);
-  background:rgba(255,255,255,.7);
-  backdrop-filter:blur(8px);
-  padding:16px;
-  box-shadow:var(--shadow);
-}
-.left{flex:0 0 360px}
-.right{flex:1;display:flex;flex-direction:column;gap:14px}
 
-/* FORM */
-label{font-size:13px;color:var(--muted)}
-input,select{
-  width:100%;
-  padding:11px;
-  border-radius:10px;
-  border:1px solid rgba(0,0,0,.1);
+.card{
+  background:#fff;
+  padding:16px;
+  border:1px solid #ccc;
+  border-radius:6px;
 }
+
+.left{width:340px}
+.right{flex:1}
+
 button{
-  padding:12px;
-  border-radius:12px;
+  padding:10px;
   border:none;
-  cursor:pointer;
-  font-weight:600;
-  background:linear-gradient(90deg,var(--accent1),var(--accent2));
+  background:#7b38c3;
   color:#fff;
+  border-radius:4px;
+  cursor:pointer;
 }
 button.ghost{
   background:#fff;
-  color:var(--accent2);
-  border:1px solid rgba(0,0,0,.15);
+  color:#7b38c3;
+  border:1px solid #7b38c3;
 }
-.controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 
-/* VIDEO */
-#video{
+.controls{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+
+video{
   width:100%;
-  height:260px;
+  height:240px;
   background:#000;
-  border-radius:12px;
   margin-top:10px;
 }
 
-/* TABLE */
-.table-wrap{
-  overflow:auto;
-  border-radius:12px;
-  border:1px solid rgba(0,0,0,.08);
-}
 table{
   width:100%;
   border-collapse:collapse;
-  min-width:700px;
+  font-size:13px;
 }
+
 th,td{
-  padding:12px;
-  border-bottom:1px solid rgba(0,0,0,.05);
-}
-thead th{
-  position:sticky;
-  top:0;
-  background:rgba(255,255,255,.95);
+  border:1px solid #000;
+  padding:6px;
 }
 
-/* SUMMARY */
-#summaryBar{
-  padding:12px;
-  border-radius:12px;
-  background:rgba(255,255,255,.6);
-  display:flex;
-  justify-content:space-between;
-}
+th{background:#eee}
 
-/* TOAST */
 #toast{
   position:fixed;
-  right:12px;
-  top:80px;
-  padding:10px 14px;
-  border-radius:10px;
+  top:20px;
+  right:20px;
+  background:#333;
   color:#fff;
+  padding:10px 14px;
   display:none;
-  z-index:9999;
+  z-index:999;
 }
-#toast.success{background:#2ecc71}
-#toast.error{background:#e74c3c}
 
-/* LOGIN */
 #loginScreen{
   position:fixed;
   inset:0;
   display:flex;
-  align-items:center;
   justify-content:center;
-  background:linear-gradient(135deg,#fff,#ffe6f0);
-  z-index:99999;
+  align-items:center;
+  background:#eee;
 }
 
-/* MOBILE */
-@media(max-width:600px){
-  #topbar{flex-direction:column;gap:8px;text-align:center}
-  #container{flex-direction:column;align-items:center}
-  .left,.right{width:100%;max-width:500px}
-  button{width:100%}
-  .controls{flex-direction:column}
+.print-header{
+  display:none;
 }
 
-/* PRINT – ONLY TABLE */
+/* PRINT */
 @media print{
-  body *{visibility:hidden}
-  .table-wrap,.table-wrap *{visibility:visible}
-  .table-wrap{
-    position:absolute;
-    left:0;
-    top:0;
-    width:100%;
-  }
+  body{background:#fff}
+  #topbar,.left,#toast,button,input,select{display:none!important}
+  .print-header{display:block;text-align:center;margin-bottom:20px}
+  th{background:#ddd!important}
 }
 </style>
 </head>
@@ -175,16 +123,12 @@ thead th{
 
 <!-- LOGIN -->
 <div id="loginScreen">
-  <div class="card" style="max-width:360px;width:100%">
-    <h2 style="text-align:center">Admin Login</h2>
-    <label>Username</label>
-    <input id="loginUser">
-    <label style="margin-top:8px">Password</label>
-    <input id="loginPass" type="password">
-    <button id="loginBtn" style="margin-top:14px;width:100%">Login</button>
-    <div id="loginError" style="display:none;color:#e74c3c;text-align:center;margin-top:10px">
-      Invalid credentials
-    </div>
+  <div class="card">
+    <h3>Admin Login</h3>
+    <input id="loginUser" placeholder="Username"><br><br>
+    <input id="loginPass" type="password" placeholder="Password"><br><br>
+    <button id="loginBtn">Login</button>
+    <div id="loginError" style="color:red;display:none">Invalid credentials</div>
   </div>
 </div>
 
@@ -193,7 +137,7 @@ thead th{
 <header id="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <img id="logo" src="college-logo.png">
-    <h1>Attendance Admin</h1>
+    <strong>Attendance Admin</strong>
   </div>
   <button id="logoutBtn" class="ghost">Logout</button>
 </header>
@@ -201,249 +145,207 @@ thead th{
 <main id="container">
 
 <section class="left card">
-  <h3>QR Scanner</h3>
+  <h4>QR Scanner</h4>
 
-  <label>Session</label>
   <select id="session">
     <option value="morning">Morning</option>
     <option value="afternoon">Afternoon</option>
   </select>
 
   <div class="controls">
-    <button id="startBtn">Start Scan</button>
+    <button id="startBtn">Start</button>
     <button id="stopBtn" class="ghost" disabled>Stop</button>
     <button id="resetBtn" class="ghost">Reset Today</button>
   </div>
 
-  <video id="video" autoplay muted playsinline></video>
+  <video id="video" autoplay muted></video>
 
   <div class="controls">
     <button id="printBtn">Print</button>
   </div>
 </section>
 
-<section class="right">
-  <div class="card" style="display:flex;gap:10px;align-items:center">
-    <input id="search" placeholder="Search name | course | year">
-    <div>Today: <strong id="todayLabel"></strong></div>
+<section class="right card">
+
+  <div class="print-header">
+    <h2>Daily Attendance Report</h2>
+    <p id="printDate"></p>
   </div>
 
-  <div class="card table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th><th>Course</th><th>Year</th>
-          <th>Morning In</th><th>Morning Out</th>
-          <th>Afternoon In</th><th>Afternoon Out</th>
-          <th>Date</th>
-        </tr>
-      </thead>
-      <tbody id="tableBody"></tbody>
-    </table>
-  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th><th>Course</th><th>Year</th>
+        <th>Morning In</th><th>Morning Out</th>
+        <th>Afternoon In</th><th>Afternoon Out</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
 
-  <div id="summaryBar">
-    <div>Shown: <strong id="countShown">0</strong></div>
-    <div>Total: <strong id="totalCount">0</strong></div>
-  </div>
 </section>
 
 </main>
-      </div>
+  </div>
 
   <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, get, set, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-/* ===== CONSTANTS ===== */
+/* ===== CONFIG ===== */
 const LOGIN_USER="admin";
 const LOGIN_PASS="admin123";
+const AUTO_LOGOUT_MS=5*60*1000;
 
 /* ===== ELEMENTS ===== */
-const loginBtn = document.getElementById("loginBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const resetBtn = document.getElementById("resetBtn");
-const loginUser = document.getElementById("loginUser");
-const loginPass = document.getElementById("loginPass");
-const loginError = document.getElementById("loginError");
-const loginScreen = document.getElementById("loginScreen");
-const adminApp = document.getElementById("adminApp");
+const el=id=>document.getElementById(id);
+const toast=el("toast");
+const loginScreen=el("loginScreen");
+const adminApp=el("adminApp");
 
 /* ===== TOAST ===== */
-const toast = document.getElementById("toast");
-function showToast(msg,type="success"){
+function showToast(msg){
   toast.textContent=msg;
-  toast.className=type;
   toast.style.display="block";
-  setTimeout(()=>toast.style.display="none",2000);
+  setTimeout(()=>toast.style.display="none",2500);
 }
 
 /* ===== LOGIN ===== */
-loginBtn.onclick=()=>{
-  if(loginUser.value===LOGIN_USER && loginPass.value===LOGIN_PASS){
-    sessionStorage.setItem("adminLoggedIn","true");
-    showAdmin();
-  }else{
-    loginError.style.display="block";
-  }
+let logoutTimer;
+function resetTimer(){
+  clearTimeout(logoutTimer);
+  logoutTimer=setTimeout(()=>logout(),AUTO_LOGOUT_MS);
+}
+["click","mousemove","keydown","touchstart"].forEach(e=>{
+  document.addEventListener(e,()=>sessionStorage.getItem("admin")&&resetTimer(),{passive:true});
+});
+
+el("loginBtn").onclick=()=>{
+  if(el("loginUser").value===LOGIN_USER && el("loginPass").value===LOGIN_PASS){
+    sessionStorage.setItem("admin","1");
+    loginScreen.style.display="none";
+    adminApp.style.display="block";
+    resetTimer();
+  }else el("loginError").style.display="block";
 };
-logoutBtn.onclick=()=>{
+
+function logout(){
   sessionStorage.clear();
-  showLogin();
-};
-function showAdmin(){
+  stopScanner();
+  location.reload();
+}
+el("logoutBtn").onclick=logout;
+
+if(sessionStorage.getItem("admin")==="1"){
   loginScreen.style.display="none";
   adminApp.style.display="block";
+  resetTimer();
 }
-function showLogin(){
-  adminApp.style.display="none";
-  loginScreen.style.display="flex";
-}
-sessionStorage.getItem("adminLoggedIn")==="true" ? showAdmin() : showLogin();
 
 /* ===== FIREBASE ===== */
-const firebaseConfig={
+const app=initializeApp({
   apiKey:"AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
-  authDomain:"dent-dept-dtr.firebaseapp.com",
-  databaseURL:"https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"dent-dept-dtr"
-};
-const app=initializeApp(firebaseConfig);
+  databaseURL:"https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app"
+});
 const db=getDatabase(app);
 
 /* ===== DATE ===== */
-const todayLabel=document.getElementById("todayLabel");
-todayLabel.textContent=new Date().toISOString().slice(0,10);
+const today=new Date().toISOString().slice(0,10);
+el("printDate").textContent=`Date: ${today}`;
+const ADMIN_PATH=`adminAttendance/${today}`;
 
-/* ===== QR SCANNER ===== */
-const startBtn=document.getElementById("startBtn");
-const stopBtn=document.getElementById("stopBtn");
-const video=document.getElementById("video");
-const sessionSelect=document.getElementById("session");
-const codeReader=new ZXing.BrowserQRCodeReader();
+/* ===== SCANNER ===== */
+const reader=new ZXing.BrowserQRCodeReader();
+let scanning=false;
+let lastScan={uid:null,ts:0};
 
-startBtn.onclick=async()=>{
-  const devices=await codeReader.listVideoInputDevices();
-  startBtn.disabled=true;
-  stopBtn.disabled=false;
-  showToast("Scanner started");
-  codeReader.decodeFromVideoDevice(devices[0].deviceId,video,(res)=>{
+async function startScanner(){
+  if(scanning) return;
+  const cams=await reader.listVideoInputDevices();
+  const cam=cams.find(c=>/rear|back|env/i.test(c.label))||cams[0];
+  reader.decodeFromVideoDevice(cam.deviceId,el("video"),res=>{
     if(res) handleScan(res.getText());
   });
-};
-stopBtn.onclick=()=>{
-  codeReader.reset();
-  startBtn.disabled=false;
-  stopBtn.disabled=true;
-  showToast("Scanner stopped");
-};
+  scanning=true;
+}
+function stopScanner(){
+  reader.reset();
+  scanning=false;
+}
+el("startBtn").onclick=startScanner;
+el("stopBtn").onclick=stopScanner;
 
-/* ===== ATTENDANCE ===== */
-const tableBody=document.getElementById("tableBody");
-const searchEl=document.getElementById("search");
-const countShown=document.getElementById("countShown");
-const totalCount=document.getElementById("totalCount");
-let tableData={};
-
-onValue(ref(db,`attendance/${todayLabel.textContent}`),snap=>{
-  tableData=snap.exists()?snap.val():{};
+/* ===== DATA ===== */
+let store={};
+onValue(ref(db,ADMIN_PATH),s=>{
+  store=s.exists()?s.val():{};
   render();
 });
 
-function parseQR(t){
-  try{
-    const j=JSON.parse(t);
-    if(j.uid && (j.mode==="in"||j.mode==="out")) return j;
-  }catch{}
-  return null;
-}
+/* ===== SCAN LOGIC ===== */
+async function handleScan(txt){
+  let qr;
+  try{qr=JSON.parse(txt);}catch{return;}
 
-async function handleScan(text){
-  const qr=parseQR(text);
-  if(!qr){showToast("Invalid QR","error");return;}
-
-  const uid=qr.uid;
-  const date=todayLabel.textContent;
-  const refUser=ref(db,`attendance/${date}/${uid}`);
-
-  const profSnap=await get(ref(db,`users/${uid}`));
-  if(!profSnap.exists()){
-    showToast("Student not found","error");
-    return;
-  }
-  const prof=profSnap.val();
-
-  const snap=await get(refUser);
-  const data=snap.exists()?snap.val():{};
   const now=Date.now();
-  const sess=sessionSelect.value;
+  if(qr.uid===lastScan.uid && now-lastScan.ts<2000) return;
+  lastScan={uid:qr.uid,ts:now};
 
-  let field=null;
-  if(qr.mode==="in") field=sess==="morning"?"morningIn":"afternoonIn";
-  if(qr.mode==="out") field=sess==="morning"?"morningOut":"afternoonOut";
-  if(data[field]){showToast("Already recorded","error");return;}
+  const userSnap=await get(ref(db,`users/${qr.uid}`));
+  if(!userSnap.exists()){showToast("Student not found");return;}
 
-  await set(refUser,{
-    ...data,
-    [field]:now,
-    uid,
-    name:prof.name,
-    course:prof.course,
-    year:prof.year,
-    date
+  const row=store[qr.uid]||{};
+  const sess=el("session").value;
+  const inK=sess==="morning"?"morningIn":"afternoonIn";
+  const outK=sess==="morning"?"morningOut":"afternoonOut";
+
+  if(qr.mode==="out" && !row[inK]){showToast("Time-In required");return;}
+  const key=qr.mode==="in"?inK:outK;
+  if(row[key]){showToast("Already recorded");return;}
+
+  await set(ref(db,`${ADMIN_PATH}/${qr.uid}`),{
+    ...row,
+    ...userSnap.val(),
+    [key]:now
   });
 
-  navigator.vibrate?.(100);
-  showToast("Attendance recorded");
+  showToast("Recorded");
 }
 
-function formatTime(t){
-  const d=new Date(t);
-  let h=d.getHours()%12||12;
-  return `${h}:${String(d.getMinutes()).padStart(2,"0")} ${d.getHours()<12?"AM":"PM"}`;
-}
-
+/* ===== RENDER ===== */
+function fmt(t){return t?new Date(t).toLocaleTimeString():'';}
 function render(){
-  tableBody.innerHTML="";
-  let shown=0;
-  for(const uid in tableData){
-    const r=tableData[uid];
-    const hay=`${r.name} ${r.course} ${r.year}`.toLowerCase();
-    if(searchEl.value && !hay.includes(searchEl.value.toLowerCase())) continue;
-    tableBody.innerHTML+=`
-      <tr>
-        <td>${r.name}</td>
-        <td>${r.course}</td>
-        <td>${r.year}</td>
-        <td>${r.morningIn?formatTime(r.morningIn):""}</td>
-        <td>${r.morningOut?formatTime(r.morningOut):""}</td>
-        <td>${r.afternoonIn?formatTime(r.afternoonIn):""}</td>
-        <td>${r.afternoonOut?formatTime(r.afternoonOut):""}</td>
-        <td>${r.date}</td>
-      </tr>`;
-    shown++;
-  }
-  countShown.textContent=shown;
-  totalCount.textContent=Object.keys(tableData).length;
+  el("tableBody").innerHTML=Object.values(store).map(r=>`
+    <tr>
+      <td>${r.name}</td><td>${r.course}</td><td>${r.year}</td>
+      <td>${fmt(r.morningIn)}</td><td>${fmt(r.morningOut)}</td>
+      <td>${fmt(r.afternoonIn)}</td><td>${fmt(r.afternoonOut)}</td>
+    </tr>`).join("");
 }
 
-/* 🔒 RESET TODAY – PASSWORD RE-CONFIRM */
-resetBtn.onclick=async()=>{
-  const pass=prompt("🔒 Enter admin password to reset TODAY'S attendance:");
-  if(pass!==LOGIN_PASS){
-    showToast("Password incorrect","error");
-    return;
-  }
-  const ok=confirm("⚠️ This will permanently delete today's attendance.\n\nContinue?");
-  if(!ok) return;
+/* ===== RESET (SAFE) ===== */
+el("resetBtn").onclick=async()=>{
+  const pass=prompt("Enter admin password:");
+  if(pass!==LOGIN_PASS){showToast("Wrong password");return;}
 
-  await remove(ref(db,`attendance/${todayLabel.textContent}`));
-  showToast("Today's attendance reset");
+  // CSV BACKUP
+  let csv="Name,Course,Year,Morning In,Morning Out,Afternoon In,Afternoon Out\n";
+  Object.values(store).forEach(r=>{
+    csv+=`${r.name},${r.course},${r.year},${fmt(r.morningIn)},${fmt(r.morningOut)},${fmt(r.afternoonIn)},${fmt(r.afternoonOut)}\n`;
+  });
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`attendance_${today}.csv`;
+  a.click();
+
+  if(!confirm("Reset ADMIN records for today?")) return;
+  await remove(ref(db,ADMIN_PATH));
+  showToast("Admin records reset");
 };
 
-searchEl.oninput=render;
-document.getElementById("printBtn").onclick=()=>window.print();
+el("printBtn").onclick=()=>window.print();
 </script>
 
 </body>
-</html>
+      </html>
