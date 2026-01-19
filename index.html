@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <title>Admin Attendance Panel</title>
 
-<!-- ZXing QR -->
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
@@ -26,7 +25,7 @@ html,body{
   background:linear-gradient(135deg,var(--bg1),var(--bg2));
 }
 
-/* ===== TOP BAR ===== */
+/* TOP BAR */
 #topbar{
   max-width:var(--maxw);
   margin:16px auto;
@@ -39,14 +38,9 @@ html,body{
   backdrop-filter:blur(6px);
   box-shadow:var(--shadow);
 }
-#logo{
-  width:48px;
-  height:48px;
-  object-fit:contain;
-  border-radius:8px;
-}
+#logo{width:48px;height:48px;object-fit:contain;border-radius:8px}
 
-/* ===== LAYOUT ===== */
+/* LAYOUT */
 #container{
   max-width:var(--maxw);
   margin:0 auto;
@@ -64,7 +58,7 @@ html,body{
 .left{flex:0 0 360px}
 .right{flex:1;display:flex;flex-direction:column;gap:14px}
 
-/* ===== FORM ===== */
+/* FORM */
 label{font-size:13px;color:var(--muted)}
 input,select{
   width:100%;
@@ -86,14 +80,9 @@ button.ghost{
   color:var(--accent2);
   border:1px solid rgba(0,0,0,.15);
 }
-.controls{
-  display:flex;
-  gap:8px;
-  margin-top:10px;
-  flex-wrap:wrap;
-}
+.controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 
-/* ===== VIDEO ===== */
+/* VIDEO */
 #video{
   width:100%;
   height:260px;
@@ -102,7 +91,7 @@ button.ghost{
   margin-top:10px;
 }
 
-/* ===== TABLE ===== */
+/* TABLE */
 .table-wrap{
   overflow:auto;
   border-radius:12px;
@@ -123,7 +112,7 @@ thead th{
   background:rgba(255,255,255,.95);
 }
 
-/* ===== SUMMARY ===== */
+/* SUMMARY */
 #summaryBar{
   padding:12px;
   border-radius:12px;
@@ -132,7 +121,7 @@ thead th{
   justify-content:space-between;
 }
 
-/* ===== TOAST ===== */
+/* TOAST */
 #toast{
   position:fixed;
   right:12px;
@@ -146,7 +135,7 @@ thead th{
 #toast.success{background:#2ecc71}
 #toast.error{background:#e74c3c}
 
-/* ===== LOGIN ===== */
+/* LOGIN */
 #loginScreen{
   position:fixed;
   inset:0;
@@ -157,17 +146,16 @@ thead th{
   z-index:99999;
 }
 
-/* ===== MOBILE ===== */
+/* MOBILE */
 @media(max-width:600px){
   #topbar{flex-direction:column;gap:8px;text-align:center}
   #container{flex-direction:column;align-items:center}
   .left,.right{width:100%;max-width:500px}
   button{width:100%}
   .controls{flex-direction:column}
-  table{min-width:600px}
 }
 
-/* ===== PRINT (ONLY TABLE) ===== */
+/* PRINT – ONLY TABLE */
 @media print{
   body *{visibility:hidden}
   .table-wrap,.table-wrap *{visibility:visible}
@@ -177,7 +165,6 @@ thead th{
     top:0;
     width:100%;
   }
-  table{min-width:unset}
 }
 </style>
 </head>
@@ -225,13 +212,12 @@ thead th{
   <div class="controls">
     <button id="startBtn">Start Scan</button>
     <button id="stopBtn" class="ghost" disabled>Stop</button>
-    <button id="resetBtn" class="ghost">Reset View</button>
+    <button id="resetBtn" class="ghost">Reset Today</button>
   </div>
 
   <video id="video" autoplay muted playsinline></video>
 
   <div class="controls">
-    <button id="exportBtn">Save CSV</button>
     <button id="printBtn">Print</button>
   </div>
 </section>
@@ -263,11 +249,15 @@ thead th{
 </section>
 
 </main>
-</div>
+      </div>
 
   <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, onValue, get, set, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+/* ===== CONSTANTS ===== */
+const LOGIN_USER="admin";
+const LOGIN_PASS="admin123";
 
 /* ===== ELEMENTS ===== */
 const loginBtn = document.getElementById("loginBtn");
@@ -282,16 +272,13 @@ const adminApp = document.getElementById("adminApp");
 /* ===== TOAST ===== */
 const toast = document.getElementById("toast");
 function showToast(msg,type="success"){
-  toast.textContent = msg;
-  toast.className = type;
-  toast.style.display = "block";
+  toast.textContent=msg;
+  toast.className=type;
+  toast.style.display="block";
   setTimeout(()=>toast.style.display="none",2000);
 }
 
 /* ===== LOGIN ===== */
-const LOGIN_USER="admin";
-const LOGIN_PASS="admin123";
-
 loginBtn.onclick=()=>{
   if(loginUser.value===LOGIN_USER && loginPass.value===LOGIN_PASS){
     sessionStorage.setItem("adminLoggedIn","true");
@@ -304,7 +291,6 @@ logoutBtn.onclick=()=>{
   sessionStorage.clear();
   showLogin();
 };
-
 function showAdmin(){
   loginScreen.style.display="none";
   adminApp.style.display="block";
@@ -313,7 +299,6 @@ function showLogin(){
   adminApp.style.display="none";
   loginScreen.style.display="flex";
 }
-
 sessionStorage.getItem("adminLoggedIn")==="true" ? showAdmin() : showLogin();
 
 /* ===== FIREBASE ===== */
@@ -339,15 +324,13 @@ const codeReader=new ZXing.BrowserQRCodeReader();
 
 startBtn.onclick=async()=>{
   const devices=await codeReader.listVideoInputDevices();
-  const cam=devices[0];
   startBtn.disabled=true;
   stopBtn.disabled=false;
   showToast("Scanner started");
-  codeReader.decodeFromVideoDevice(cam.deviceId,video,(res)=>{
+  codeReader.decodeFromVideoDevice(devices[0].deviceId,video,(res)=>{
     if(res) handleScan(res.getText());
   });
 };
-
 stopBtn.onclick=()=>{
   codeReader.reset();
   startBtn.disabled=false;
@@ -379,7 +362,17 @@ async function handleScan(text){
   const qr=parseQR(text);
   if(!qr){showToast("Invalid QR","error");return;}
 
-  const refUser=ref(db,`attendance/${todayLabel.textContent}/${qr.uid}`);
+  const uid=qr.uid;
+  const date=todayLabel.textContent;
+  const refUser=ref(db,`attendance/${date}/${uid}`);
+
+  const profSnap=await get(ref(db,`users/${uid}`));
+  if(!profSnap.exists()){
+    showToast("Student not found","error");
+    return;
+  }
+  const prof=profSnap.val();
+
   const snap=await get(refUser);
   const data=snap.exists()?snap.val():{};
   const now=Date.now();
@@ -390,9 +383,18 @@ async function handleScan(text){
   if(qr.mode==="out") field=sess==="morning"?"morningOut":"afternoonOut";
   if(data[field]){showToast("Already recorded","error");return;}
 
-  await set(refUser,{...data,[field]:now,date:todayLabel.textContent});
+  await set(refUser,{
+    ...data,
+    [field]:now,
+    uid,
+    name:prof.name,
+    course:prof.course,
+    year:prof.year,
+    date
+  });
+
   navigator.vibrate?.(100);
-  showToast("Recorded");
+  showToast("Attendance recorded");
 }
 
 function formatTime(t){
@@ -406,18 +408,18 @@ function render(){
   let shown=0;
   for(const uid in tableData){
     const r=tableData[uid];
-    const hay=`${r.name||""} ${r.course||""} ${r.year||""}`.toLowerCase();
+    const hay=`${r.name} ${r.course} ${r.year}`.toLowerCase();
     if(searchEl.value && !hay.includes(searchEl.value.toLowerCase())) continue;
     tableBody.innerHTML+=`
       <tr>
-        <td>${r.name||uid}</td>
-        <td>${r.course||""}</td>
-        <td>${r.year||""}</td>
+        <td>${r.name}</td>
+        <td>${r.course}</td>
+        <td>${r.year}</td>
         <td>${r.morningIn?formatTime(r.morningIn):""}</td>
         <td>${r.morningOut?formatTime(r.morningOut):""}</td>
         <td>${r.afternoonIn?formatTime(r.afternoonIn):""}</td>
         <td>${r.afternoonOut?formatTime(r.afternoonOut):""}</td>
-        <td>${r.date||""}</td>
+        <td>${r.date}</td>
       </tr>`;
     shown++;
   }
@@ -425,8 +427,21 @@ function render(){
   totalCount.textContent=Object.keys(tableData).length;
 }
 
+/* 🔒 RESET TODAY – PASSWORD RE-CONFIRM */
+resetBtn.onclick=async()=>{
+  const pass=prompt("🔒 Enter admin password to reset TODAY'S attendance:");
+  if(pass!==LOGIN_PASS){
+    showToast("Password incorrect","error");
+    return;
+  }
+  const ok=confirm("⚠️ This will permanently delete today's attendance.\n\nContinue?");
+  if(!ok) return;
+
+  await remove(ref(db,`attendance/${todayLabel.textContent}`));
+  showToast("Today's attendance reset");
+};
+
 searchEl.oninput=render;
-resetBtn.onclick=()=>{searchEl.value="";render();showToast("View reset");};
 document.getElementById("printBtn").onclick=()=>window.print();
 </script>
 
