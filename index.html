@@ -1,63 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin Attendance Panel</title>
 
-<!-- ZXing -->
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
-body{
-  margin:0;
-  font-family:Arial,Helvetica,sans-serif;
-  background:linear-gradient(135deg,#fff,#ffe6f0);
-}
-.card{
-  background:#fff;
-  border-radius:12px;
-  padding:16px;
-  box-shadow:0 8px 24px rgba(0,0,0,.1);
-}
-button{
-  padding:10px 14px;
-  border:none;
-  border-radius:10px;
-  background:#7b38c3;
-  color:#fff;
-  font-weight:600;
-  cursor:pointer;
-}
-button.ghost{
-  background:#fff;
-  color:#7b38c3;
-  border:1px solid #ccc;
-}
-#video{
-  width:100%;
-  height:240px;
-  background:#000;
-  border-radius:10px;
-}
-table{
-  width:100%;
-  border-collapse:collapse;
-}
-th,td{
-  padding:10px;
-  border-bottom:1px solid #ddd;
-}
-#toast{
-  position:fixed;
-  top:20px;
-  right:20px;
-  background:#333;
-  color:#fff;
-  padding:10px 14px;
-  border-radius:8px;
-  display:none;
-}
+body{margin:0;font-family:Arial;background:linear-gradient(135deg,#fff,#ffe6f0)}
+.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.1)}
+button{padding:10px 14px;border:none;border-radius:10px;background:#7b38c3;color:#fff;font-weight:600;cursor:pointer}
+button.ghost{background:#fff;color:#7b38c3;border:1px solid #ccc}
+#video{width:100%;height:240px;background:#000;border-radius:10px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #ddd}
+#toast{position:fixed;top:20px;right:20px;padding:10px 14px;color:#fff;border-radius:8px;display:none;z-index:999}
+#toast.success{background:#2ecc71}
+#toast.error{background:#e74c3c}
 </style>
 </head>
 
@@ -66,22 +26,25 @@ th,td{
 <div id="toast"></div>
 
 <!-- LOGIN -->
-<div id="loginScreen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;">
-  <div class="card" style="width:320px;">
+<div id="loginScreen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">
+  <div class="card" style="width:320px">
     <h2>Admin Login</h2>
     <input id="loginUser" placeholder="Username" style="width:100%;margin-bottom:8px">
     <input id="loginPass" type="password" placeholder="Password" style="width:100%">
     <button id="loginBtn" style="width:100%;margin-top:10px">Login</button>
-    <div id="loginError" style="color:red;display:none;margin-top:8px">Invalid login</div>
+    <div id="loginError" style="color:red;display:none;margin-top:8px">Invalid credentials</div>
   </div>
 </div>
 
-<!-- APP -->
 <div id="adminApp" style="display:none;padding:16px">
 
 <div style="display:flex;justify-content:space-between;align-items:center">
   <h2>Attendance Admin</h2>
   <button id="logoutBtn" class="ghost">Logout</button>
+</div>
+
+<div style="margin-top:8px">
+  Today: <strong id="todayLabel"></strong>
 </div>
 
 <div style="display:grid;grid-template-columns:320px 1fr;gap:16px;margin-top:16px">
@@ -95,30 +58,41 @@ th,td{
     <option value="afternoon">Afternoon</option>
   </select>
 
-  <button id="startBtn">Start Scan</button>
-  <button id="stopBtn" class="ghost" disabled>Stop</button>
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <button id="startBtn">Start Scan</button>
+    <button id="stopBtn" class="ghost" disabled>Stop</button>
+  </div>
 
   <video id="video" autoplay muted playsinline></video>
+
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button id="exportBtn">Save CSV</button>
+    <button id="printBtn" class="ghost">Print</button>
+  </div>
 </div>
 
 <!-- RIGHT -->
 <div class="card">
-  <input id="search" placeholder="Search..." style="width:100%;margin-bottom:10px">
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <input id="search" placeholder="Search..." style="flex:1">
+    <button id="resetBtn" class="ghost">Reset</button>
+  </div>
 
   <table>
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Course</th>
-        <th>Year</th>
-        <th>M In</th>
-        <th>M Out</th>
-        <th>A In</th>
-        <th>A Out</th>
+        <th>Name</th><th>Course</th><th>Year</th>
+        <th>M In</th><th>M Out</th>
+        <th>A In</th><th>A Out</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>
   </table>
+
+  <div style="margin-top:8px">
+    Shown: <strong id="countShown">0</strong> |
+    Total: <strong id="totalCount">0</strong>
+  </div>
 </div>
 
 </div>
@@ -129,142 +103,144 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 /* ELEMENTS */
-const loginBtn = document.getElementById("loginBtn");
-const loginUser = document.getElementById("loginUser");
-const loginPass = document.getElementById("loginPass");
-const loginError = document.getElementById("loginError");
-const loginScreen = document.getElementById("loginScreen");
-const adminApp = document.getElementById("adminApp");
-const logoutBtn = document.getElementById("logoutBtn");
-
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
-const video = document.getElementById("video");
-const sessionSelect = document.getElementById("session");
-const tableBody = document.getElementById("tableBody");
-const searchEl = document.getElementById("search");
-const toast = document.getElementById("toast");
+const $ = id => document.getElementById(id);
+const loginBtn=$("loginBtn"), loginUser=$("loginUser"), loginPass=$("loginPass"), loginError=$("loginError");
+const loginScreen=$("loginScreen"), adminApp=$("adminApp"), logoutBtn=$("logoutBtn");
+const startBtn=$("startBtn"), stopBtn=$("stopBtn"), video=$("video");
+const sessionSelect=$("session"), tableBody=$("tableBody"), searchEl=$("search");
+const resetBtn=$("resetBtn"), todayLabel=$("todayLabel");
+const countShown=$("countShown"), totalCount=$("totalCount");
+const exportBtn=$("exportBtn"), printBtn=$("printBtn");
+const toast=$("toast");
 
 /* TOAST */
-function showToast(msg){
-  toast.textContent = msg;
-  toast.style.display = "block";
+function showToast(msg,type="success"){
+  toast.textContent=msg;
+  toast.className=type;
+  toast.style.display="block";
   setTimeout(()=>toast.style.display="none",2000);
 }
 
 /* LOGIN */
-loginBtn.onclick = () => {
+loginBtn.onclick=()=>{
   if(loginUser.value==="admin" && loginPass.value==="admin123"){
     sessionStorage.setItem("admin","1");
     showApp();
-  }else{
-    loginError.style.display="block";
-  }
+  }else loginError.style.display="block";
 };
-logoutBtn.onclick = () => {
-  sessionStorage.removeItem("admin");
-  location.reload();
-};
+logoutBtn.onclick=()=>{sessionStorage.clear();location.reload()};
 function showApp(){
   loginScreen.style.display="none";
   adminApp.style.display="block";
 }
 if(sessionStorage.getItem("admin")==="1") showApp();
 
+/* AUTO LOGOUT */
+let timer;
+function resetTimer(){
+  clearTimeout(timer);
+  timer=setTimeout(()=>{showToast("Logged out","error");logoutBtn.onclick()},5*60*1000);
+}
+["click","mousemove","keydown","touchstart"].forEach(e=>{
+  document.addEventListener(e,()=>sessionStorage.getItem("admin")&&resetTimer());
+});
+
 /* FIREBASE */
-const app = initializeApp({
+const app=initializeApp({
   apiKey:"AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
   databaseURL:"https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app"
 });
-const db = getDatabase(app);
+const db=getDatabase(app);
 
-const today = new Date().toISOString().slice(0,10);
-let tableData = {};
+/* DATE */
+const today=new Date().toISOString().slice(0,10);
+todayLabel.textContent=today;
 
-onValue(ref(db,"attendance/"+today), snap=>{
-  tableData = snap.val() || {};
+/* DATA */
+let tableData={};
+onValue(ref(db,"attendance/"+today),snap=>{
+  tableData=snap.val()||{};
   render();
 });
 
 /* QR */
-const reader = new ZXing.BrowserQRCodeReader();
-let last = "";
-
-startBtn.onclick = async () => {
-  const devices = await reader.listVideoInputDevices();
-  reader.decodeFromVideoDevice(devices[0].deviceId, video, (res)=>{
-    if(res){
-      const txt = res.getText();
-      if(txt===last) return;
-      last = txt;
-      handleScan(txt);
+const reader=new ZXing.BrowserQRCodeReader();
+let last="";
+startBtn.onclick=async()=>{
+  const devices=await reader.listVideoInputDevices();
+  const cam=devices.find(d=>/back|rear/i.test(d.label))||devices[0];
+  reader.decodeFromVideoDevice(cam.deviceId,video,res=>{
+    if(res && res.getText()!==last){
+      last=res.getText();
+      handleScan(last);
     }
   });
-  startBtn.disabled=true;
-  stopBtn.disabled=false;
+  startBtn.disabled=true;stopBtn.disabled=false;
 };
+stopBtn.onclick=()=>{reader.reset();startBtn.disabled=false;stopBtn.disabled=true};
 
-stopBtn.onclick = ()=>{
-  reader.reset();
-  startBtn.disabled=false;
-  stopBtn.disabled=true;
-};
+function parseQR(t){try{const j=JSON.parse(t);return j.uid&&j.mode?j:null}catch{return null}}
 
-function parseQR(txt){
-  try{
-    const j = JSON.parse(txt);
-    if(j.uid && j.mode) return j;
-  }catch{}
-  return null;
-}
+async function handleScan(t){
+  const qr=parseQR(t);
+  if(!qr)return showToast("Invalid QR","error");
 
-async function handleScan(txt){
-  const qr = parseQR(txt);
-  if(!qr){showToast("Invalid QR");return;}
-
-  const refUser = ref(db,`attendance/${today}/${qr.uid}`);
-  const snap = await get(refUser);
-  const data = snap.val() || {};
-  const sess = sessionSelect.value;
-  const now = Date.now();
+  const uref=ref(db,`attendance/${today}/${qr.uid}`);
+  const snap=await get(uref);
+  const data=snap.val()||{};
+  const profSnap=await get(ref(db,`users/${qr.uid}`));
+  const prof=profSnap.val()||{};
+  const now=Date.now(), s=sessionSelect.value;
 
   if(qr.mode==="in"){
-    if(sess==="morning" && !data.morningIn) data.morningIn=now;
-    if(sess==="afternoon" && !data.afternoonIn) data.afternoonIn=now;
+    if(s==="morning"&&!data.morningIn)data.morningIn=now;
+    if(s==="afternoon"&&!data.afternoonIn)data.afternoonIn=now;
   }
   if(qr.mode==="out"){
-    if(sess==="morning" && data.morningIn && !data.morningOut) data.morningOut=now;
-    if(sess==="afternoon" && data.afternoonIn && !data.afternoonOut) data.afternoonOut=now;
+    if(s==="morning"&&data.morningIn&&!data.morningOut)data.morningOut=now;
+    if(s==="afternoon"&&data.afternoonIn&&!data.afternoonOut)data.afternoonOut=now;
   }
-  data.date=today;
-  await set(refUser,data);
+  Object.assign(data,{name:prof.name||"",course:prof.course||"",year:prof.year||"",date:today});
+  await set(uref,data);
   showToast("Recorded");
 }
 
-function t(v){
-  if(!v) return "";
-  const d=new Date(v);
-  return d.toLocaleTimeString();
-}
-
+/* TABLE */
+function f(t){return t?new Date(t).toLocaleTimeString():""}
 function render(){
   tableBody.innerHTML="";
+  let shown=0;
   Object.values(tableData).forEach(r=>{
-    const h = `${r.name||""} ${r.course||""} ${r.year||""}`.toLowerCase();
-    if(searchEl.value && !h.includes(searchEl.value.toLowerCase())) return;
+    const h=`${r.name} ${r.course} ${r.year}`.toLowerCase();
+    if(searchEl.value && !h.includes(searchEl.value.toLowerCase()))return;
     tableBody.innerHTML+=`
       <tr>
-        <td>${r.name||""}</td>
-        <td>${r.course||""}</td>
-        <td>${r.year||""}</td>
-        <td>${t(r.morningIn)}</td>
-        <td>${t(r.morningOut)}</td>
-        <td>${t(r.afternoonIn)}</td>
-        <td>${t(r.afternoonOut)}</td>
+        <td>${r.name}</td><td>${r.course}</td><td>${r.year}</td>
+        <td>${f(r.morningIn)}</td><td>${f(r.morningOut)}</td>
+        <td>${f(r.afternoonIn)}</td><td>${f(r.afternoonOut)}</td>
       </tr>`;
+    shown++;
   });
+  countShown.textContent=shown;
+  totalCount.textContent=Object.keys(tableData).length;
 }
 searchEl.oninput=render;
+resetBtn.onclick=()=>{searchEl.value="";render()};
+
+/* CSV */
+exportBtn.onclick=()=>{
+  let csv="Name,Course,Year,M In,M Out,A In,A Out\n";
+  Object.values(tableData).forEach(r=>{
+    csv+=`${r.name},${r.course},${r.year},${f(r.morningIn)},${f(r.morningOut)},${f(r.afternoonIn)},${f(r.afternoonOut)}\n`;
+  });
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=`attendance_${today}.csv`;
+  a.click();
+};
+
+/* PRINT */
+printBtn.onclick=()=>window.print();
 </script>
 
 </body>
