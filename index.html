@@ -38,6 +38,7 @@ body{
   display:flex;
   gap:16px;
   padding:0 12px;
+  align-items:flex-start;
 }
 
 .card{
@@ -49,7 +50,7 @@ body{
 }
 
 .left{width:340px}
-.right{flex:1}
+.right{flex:1; min-width:0;} /* important for flex overflow on mobile */
 
 button{
   padding:10px 12px;
@@ -90,23 +91,6 @@ video{
   background:#000;
   margin-top:10px;
   border-radius:10px;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:13px;
-  border-radius:10px;
-  overflow:hidden;
-}
-
-th,td{
-  border:1px solid #000;
-  padding:8px 6px;
-}
-
-th{
-  background:#f1ecfb;
 }
 
 #toast{
@@ -157,6 +141,40 @@ th{
   box-shadow:0 0 0 3px rgba(123,56,195,.15);
 }
 
+/* TABLE + SCROLL WRAP (MOBILE FRIENDLY) */
+.table-wrap{
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:10px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+  border-radius:10px;
+  overflow:hidden;
+  min-width:760px; /* allows horizontal scroll on phones */
+}
+
+th,td{
+  border:1px solid #000;
+  padding:8px 6px;
+}
+
+th{
+  background:#f1ecfb;
+}
+
+/* Make layout mobile-friendly */
+@media (max-width: 900px){
+  #container{ flex-direction:column; }
+  .left,.right{ width:100%; }
+  video{ height:220px; }
+  #topbar{ gap:10px; flex-wrap:wrap; }
+}
+
 /* PRINT */
 @media print{
   body{background:#fff}
@@ -197,7 +215,7 @@ th{
 <section class="left card">
   <h4 style="margin:0 0 6px 0">QR Scanner</h4>
 
-  <!-- Scanner Status (NEW) -->
+  <!-- Scanner Status -->
   <div id="scanStatus" style="margin:6px 0 10px 0;font-weight:700;color:#e74c3c">
     🔴 Scanner stopped
   </div>
@@ -227,19 +245,22 @@ th{
     <p id="printDate"></p>
   </div>
 
-  <!-- Search (NEW) -->
+  <!-- Search -->
   <input id="search" placeholder="Search name..." />
 
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th><th>Course</th><th>Year</th>
-        <th>Morning In</th><th>Morning Out</th>
-        <th>Afternoon In</th><th>Afternoon Out</th>
-      </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
+  <!-- Table scroll wrapper (mobile friendly) -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>Course</th><th>Year</th>
+          <th>Morning In</th><th>Morning Out</th>
+          <th>Afternoon In</th><th>Afternoon Out</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
 
 </section>
 
@@ -268,7 +289,7 @@ function showToast(msg){
   setTimeout(()=>toast.style.display="none",2500);
 }
 
-/* ===== SCANNER STATUS (NEW) ===== */
+/* ===== SCANNER STATUS ===== */
 const scanStatus=el("scanStatus");
 function setScanStatus(text,color){
   if(!scanStatus) return;
@@ -292,7 +313,9 @@ el("loginBtn").onclick=()=>{
     loginScreen.style.display="none";
     adminApp.style.display="block";
     resetTimer();
-  }else el("loginError").style.display="block";
+  }else{
+    el("loginError").style.display="block";
+  }
 };
 
 function logout(){
@@ -330,9 +353,11 @@ async function startScanner(){
   try{
     const cams=await reader.listVideoInputDevices();
     const cam=cams.find(c=>/rear|back|env/i.test(c.label))||cams[0];
+
     reader.decodeFromVideoDevice(cam.deviceId,el("video"),res=>{
       if(res) handleScan(res.getText());
     });
+
     scanning=true;
 
     // UI toggles
@@ -371,7 +396,8 @@ async function handleScan(txt){
   setScanStatus("⏳ Processing scan...","#f39c12");
 
   let qr;
-  try{qr=JSON.parse(txt);}catch{
+  try{ qr=JSON.parse(txt); }
+  catch{
     setScanStatus("❌ Invalid QR","#e74c3c");
     return;
   }
@@ -395,6 +421,7 @@ async function handleScan(txt){
   const inK=sess==="morning"?"morningIn":"afternoonIn";
   const outK=sess==="morning"?"morningOut":"afternoonOut";
 
+  // IMPORTANT RULE: cannot time-out without time-in
   if(qr.mode==="out" && !row[inK]){
     showToast("Time-In required");
     setScanStatus("❌ Time-In required","#e74c3c");
@@ -418,18 +445,17 @@ async function handleScan(txt){
 }
 
 /* ===== RENDER ===== */
-function fmt(t){return t?new Date(t).toLocaleTimeString():'';}
+function fmt(t){ return t ? new Date(t).toLocaleTimeString() : ""; }
 
 function render(){
   const q=(el("search")?.value||"").toLowerCase();
 
   el("tableBody").innerHTML=Object.values(store)
-    .filter(r=>(r.name||"").toLowerCase().includes(q))
+    .filter(r => (r.name||"").toLowerCase().includes(q))
     .map(r=>{
       const missM = r.morningIn && !r.morningOut;
       const missA = r.afternoonIn && !r.afternoonOut;
-
-      const rowTint = (missM || missA) ? 'background:#fff3f3' : '';
+      const rowTint = (missM || missA) ? "background:#fff3f3" : "";
 
       return `
       <tr style="${rowTint}">
@@ -437,20 +463,24 @@ function render(){
         <td>${r.course||""}</td>
         <td>${r.year||""}</td>
         <td>${fmt(r.morningIn)}</td>
-        <td style="color:${missM?'red':'inherit'}">${fmt(r.morningOut)}</td>
+        <td style="color:${missM ? "red" : "inherit"}">${fmt(r.morningOut)}</td>
         <td>${fmt(r.afternoonIn)}</td>
-        <td style="color:${missA?'red':'inherit'}">${fmt(r.afternoonOut)}</td>
+        <td style="color:${missA ? "red" : "inherit"}">${fmt(r.afternoonOut)}</td>
       </tr>`;
     }).join("");
 }
 
-/* Live search (NEW) */
+/* Live search */
 el("search").oninput=render;
 
 /* ===== RESET (SAFE) ===== */
 el("resetBtn").onclick=async()=>{
   const pass=prompt("Enter admin password:");
-  if(pass!==LOGIN_PASS){showToast("Wrong password");setScanStatus("❌ Wrong password","#e74c3c");return;}
+  if(pass!==LOGIN_PASS){
+    showToast("Wrong password");
+    setScanStatus("❌ Wrong password","#e74c3c");
+    return;
+  }
 
   // CSV BACKUP
   let csv="Name,Course,Year,Morning In,Morning Out,Afternoon In,Afternoon Out\n";
