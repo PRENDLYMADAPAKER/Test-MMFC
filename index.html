@@ -1,145 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <title>Admin Attendance Panel</title>
 
+<!-- ZXing QR -->
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-  background:linear-gradient(135deg,#fff,#ffe6f0);
-  -webkit-text-size-adjust:100%;
+:root{
+  --bg1:#ffffff;
+  --bg2:#ffe6f0;
+  --accent1:#b76bdc;
+  --accent2:#7b38c3;
+  --muted:#666;
+  --shadow:0 10px 30px rgba(59,20,88,0.08);
+  --radius:14px;
+  --maxw:1200px;
 }
 
-.card{
-  background:#fff;
-  padding:14px;
-  border-radius:14px;
-  box-shadow:0 8px 20px rgba(0,0,0,.12);
+html,body{
+  margin:0;height:100%;
+  font-family:Inter,Arial,sans-serif;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
 }
 
-button{
-  padding:14px;
-  border:none;
-  border-radius:14px;
-  background:#7b38c3;
-  color:#fff;
-  font-weight:600;
-  font-size:15px;
-  cursor:pointer;
-}
-
-button.ghost{
-  background:#fff;
-  color:#7b38c3;
-  border:1px solid #ccc;
-}
-
-input,select{
-  width:100%;
-  padding:14px;
-  border-radius:14px;
-  border:1px solid #ccc;
-  font-size:15px;
-}
-
-#video{
-  width:100%;
-  height:260px;
-  background:#000;
-  border-radius:14px;
-  object-fit:cover;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  min-width:720px;
-}
-
-th,td{
-  padding:12px;
-  border-bottom:1px solid #eee;
-  white-space:nowrap;
-}
-
-thead th{
-  position:sticky;
-  top:0;
-  background:#fff;
-  z-index:2;
-}
-
-#toast{
-  position:fixed;
-  top:16px;
-  right:16px;
+/* ===== TOP BAR ===== */
+#topbar{
+  max-width:var(--maxw);
+  margin:16px auto;
   padding:12px 16px;
-  border-radius:12px;
-  color:#fff;
-  display:none;
-  z-index:999;
-}
-
-#toast.success{background:#2ecc71}
-#toast.error{background:#e74c3c}
-
-/* Web header */
-.topbar{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  gap:12px;
-  margin-bottom:8px;
+  border-radius:var(--radius);
+  background:rgba(255,255,255,.6);
+  backdrop-filter:blur(6px);
+  box-shadow:var(--shadow);
 }
-
-.brand{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.web-logo{
-  width:42px;
-  height:42px;
+#logo{
+  width:48px;
+  height:48px;
   object-fit:contain;
   border-radius:8px;
 }
 
-/* Mobile */
-@media (max-width:900px){
-  body{padding-bottom:70px}
-  .mobile-stack{display:flex;flex-direction:column;gap:14px}
-  .scanner-sticky{position:sticky;top:0;z-index:10}
-  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* ===== LAYOUT ===== */
+#container{
+  max-width:var(--maxw);
+  margin:0 auto;
+  display:flex;
+  gap:18px;
+  padding-bottom:30px;
+}
+.card{
+  border-radius:var(--radius);
+  background:rgba(255,255,255,.7);
+  backdrop-filter:blur(8px);
+  padding:16px;
+  box-shadow:var(--shadow);
+}
+.left{flex:0 0 360px}
+.right{flex:1;display:flex;flex-direction:column;gap:14px}
+
+/* ===== FORM ===== */
+label{font-size:13px;color:var(--muted)}
+input,select{
+  width:100%;
+  padding:11px;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,.1);
+}
+button{
+  padding:12px;
+  border-radius:12px;
+  border:none;
+  cursor:pointer;
+  font-weight:600;
+  background:linear-gradient(90deg,var(--accent1),var(--accent2));
+  color:#fff;
+}
+button.ghost{
+  background:#fff;
+  color:var(--accent2);
+  border:1px solid rgba(0,0,0,.15);
+}
+.controls{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+  flex-wrap:wrap;
 }
 
-/* PRINT */
+/* ===== VIDEO ===== */
+#video{
+  width:100%;
+  height:260px;
+  background:#000;
+  border-radius:12px;
+  margin-top:10px;
+}
+
+/* ===== TABLE ===== */
+.table-wrap{
+  overflow:auto;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,.08);
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:700px;
+}
+th,td{
+  padding:12px;
+  border-bottom:1px solid rgba(0,0,0,.05);
+}
+thead th{
+  position:sticky;
+  top:0;
+  background:rgba(255,255,255,.95);
+}
+
+/* ===== SUMMARY ===== */
+#summaryBar{
+  padding:12px;
+  border-radius:12px;
+  background:rgba(255,255,255,.6);
+  display:flex;
+  justify-content:space-between;
+}
+
+/* ===== TOAST ===== */
+#toast{
+  position:fixed;
+  right:12px;
+  top:80px;
+  padding:10px 14px;
+  border-radius:10px;
+  color:#fff;
+  display:none;
+  z-index:9999;
+}
+#toast.success{background:#2ecc71}
+#toast.error{background:#e74c3c}
+
+/* ===== LOGIN ===== */
+#loginScreen{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(135deg,#fff,#ffe6f0);
+  z-index:99999;
+}
+
+/* ===== MOBILE ===== */
+@media(max-width:600px){
+  #topbar{flex-direction:column;gap:8px;text-align:center}
+  #container{flex-direction:column;align-items:center}
+  .left,.right{width:100%;max-width:500px}
+  button{width:100%}
+  .controls{flex-direction:column}
+  table{min-width:600px}
+}
+
+/* ===== PRINT (ONLY TABLE) ===== */
 @media print{
   body *{visibility:hidden}
-  .print-area,.print-area *{visibility:visible}
-  .print-area{position:absolute;left:0;top:0;width:100%}
-  button,input,select,video,#toast,#loginScreen{display:none!important}
-  body{background:#fff}
-
-  .print-header{
-    display:flex;
-    justify-content:space-between;
-    border-bottom:2px solid #000;
-    padding-bottom:8px;
-    margin-bottom:10px;
+  .table-wrap,.table-wrap *{visibility:visible}
+  .table-wrap{
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
   }
-
-  .print-logo{width:80px}
-
-  table{font-size:12px}
-  th,td{border:1px solid #000;padding:6px}
-  thead{display:table-header-group}
-  tr{page-break-inside:avoid}
+  table{min-width:unset}
 }
 </style>
 </head>
@@ -149,236 +187,247 @@ thead th{
 <div id="toast"></div>
 
 <!-- LOGIN -->
-<div id="loginScreen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">
-  <div class="card" style="width:320px">
-    <h2>Admin Login</h2>
-    <input id="loginUser" placeholder="Username">
-    <input id="loginPass" type="password" placeholder="Password" style="margin-top:8px">
-    <button id="loginBtn" style="width:100%;margin-top:10px">Login</button>
-    <div id="loginError" style="display:none;color:red;margin-top:8px">Invalid credentials</div>
+<div id="loginScreen">
+  <div class="card" style="max-width:360px;width:100%">
+    <h2 style="text-align:center">Admin Login</h2>
+    <label>Username</label>
+    <input id="loginUser">
+    <label style="margin-top:8px">Password</label>
+    <input id="loginPass" type="password">
+    <button id="loginBtn" style="margin-top:14px;width:100%">Login</button>
+    <div id="loginError" style="display:none;color:#e74c3c;text-align:center;margin-top:10px">
+      Invalid credentials
+    </div>
   </div>
 </div>
 
-<div id="adminApp" style="display:none;padding:16px">
+<div id="adminApp" style="display:none">
 
-<div class="topbar">
-  <div class="brand">
-    <img src="college-logo.png" class="web-logo">
-    <h2>Attendance Admin</h2>
+<header id="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <img id="logo" src="college-logo.png">
+    <h1>Attendance Admin</h1>
   </div>
   <button id="logoutBtn" class="ghost">Logout</button>
-</div>
+</header>
 
-<div>Today: <strong id="todayLabel"></strong></div>
+<main id="container">
 
-<div class="mobile-stack" style="display:grid;grid-template-columns:320px 1fr;gap:16px;margin-top:16px">
-
-<!-- LEFT -->
-<div class="card scanner-sticky">
+<section class="left card">
   <h3>QR Scanner</h3>
+
+  <label>Session</label>
   <select id="session">
     <option value="morning">Morning</option>
     <option value="afternoon">Afternoon</option>
   </select>
 
-  <div style="display:flex;gap:8px;margin:8px 0">
-    <button id="startBtn">Start</button>
+  <div class="controls">
+    <button id="startBtn">Start Scan</button>
     <button id="stopBtn" class="ghost" disabled>Stop</button>
+    <button id="resetBtn" class="ghost">Reset View</button>
   </div>
 
   <video id="video" autoplay muted playsinline></video>
 
-  <div style="display:flex;gap:8px;margin-top:8px">
+  <div class="controls">
     <button id="exportBtn">Save CSV</button>
-    <button id="printBtn" class="ghost">Print</button>
+    <button id="printBtn">Print</button>
   </div>
-</div>
+</section>
 
-<!-- RIGHT -->
-<div class="card print-area">
-  <div class="print-header">
-    <div>
-      <h2>YOUR SCHOOL NAME</h2>
-      <div>Attendance Report</div>
-      <div>
-        Date: <strong id="printDate"></strong><br>
-        Session: <strong id="printSession"></strong>
-      </div>
-    </div>
-    <img src="college-logo.png" class="print-logo">
+<section class="right">
+  <div class="card" style="display:flex;gap:10px;align-items:center">
+    <input id="search" placeholder="Search name | course | year">
+    <div>Today: <strong id="todayLabel"></strong></div>
   </div>
 
-  <div style="display:flex;gap:8px;margin-bottom:8px">
-    <input id="search" placeholder="Search...">
-    <button id="resetBtn" class="ghost">Reset</button>
-  </div>
-
-  <div class="table-scroll">
+  <div class="card table-wrap">
     <table>
       <thead>
         <tr>
           <th>Name</th><th>Course</th><th>Year</th>
-          <th>M In</th><th>M Out</th>
-          <th>A In</th><th>A Out</th>
+          <th>Morning In</th><th>Morning Out</th>
+          <th>Afternoon In</th><th>Afternoon Out</th>
+          <th>Date</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
     </table>
   </div>
 
-  <div style="margin-top:8px">
-    Shown: <strong id="countShown">0</strong> |
-    Total: <strong id="totalCount">0</strong>
+  <div id="summaryBar">
+    <div>Shown: <strong id="countShown">0</strong></div>
+    <div>Total: <strong id="totalCount">0</strong></div>
   </div>
+</section>
+
+</main>
 </div>
 
-</div>
-</div>
-
-  
-<script type="module">
+  <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-const $=id=>document.getElementById(id);
-const loginBtn=$("loginBtn"),loginUser=$("loginUser"),loginPass=$("loginPass"),loginError=$("loginError");
-const loginScreen=$("loginScreen"),adminApp=$("adminApp"),logoutBtn=$("logoutBtn");
-const startBtn=$("startBtn"),stopBtn=$("stopBtn"),video=$("video");
-const sessionSelect=$("session"),tableBody=$("tableBody"),searchEl=$("search");
-const resetBtn=$("resetBtn"),todayLabel=$("todayLabel"),countShown=$("countShown"),totalCount=$("totalCount");
-const exportBtn=$("exportBtn"),printBtn=$("printBtn"),toast=$("toast");
+/* ===== ELEMENTS ===== */
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const resetBtn = document.getElementById("resetBtn");
+const loginUser = document.getElementById("loginUser");
+const loginPass = document.getElementById("loginPass");
+const loginError = document.getElementById("loginError");
+const loginScreen = document.getElementById("loginScreen");
+const adminApp = document.getElementById("adminApp");
 
+/* ===== TOAST ===== */
+const toast = document.getElementById("toast");
 function showToast(msg,type="success"){
-  toast.textContent=msg;
-  toast.className=type;
-  toast.style.display="block";
+  toast.textContent = msg;
+  toast.className = type;
+  toast.style.display = "block";
   setTimeout(()=>toast.style.display="none",2000);
 }
 
-/* LOGIN */
+/* ===== LOGIN ===== */
+const LOGIN_USER="admin";
+const LOGIN_PASS="admin123";
+
 loginBtn.onclick=()=>{
-  if(loginUser.value==="admin"&&loginPass.value==="admin123"){
-    sessionStorage.setItem("admin","1");
-    showApp();
-  }else loginError.style.display="block";
+  if(loginUser.value===LOGIN_USER && loginPass.value===LOGIN_PASS){
+    sessionStorage.setItem("adminLoggedIn","true");
+    showAdmin();
+  }else{
+    loginError.style.display="block";
+  }
 };
-logoutBtn.onclick=()=>{sessionStorage.clear();location.reload()};
-function showApp(){
+logoutBtn.onclick=()=>{
+  sessionStorage.clear();
+  showLogin();
+};
+
+function showAdmin(){
   loginScreen.style.display="none";
   adminApp.style.display="block";
 }
-if(sessionStorage.getItem("admin")==="1") showApp();
-
-/* AUTO LOGOUT */
-let timer;
-function resetTimer(){
-  clearTimeout(timer);
-  timer=setTimeout(()=>{showToast("Logged out","error");logoutBtn.onclick()},5*60*1000);
+function showLogin(){
+  adminApp.style.display="none";
+  loginScreen.style.display="flex";
 }
-["click","mousemove","keydown","touchstart"].forEach(e=>{
-  document.addEventListener(e,()=>sessionStorage.getItem("admin")&&resetTimer());
-});
 
-/* FIREBASE */
-const app=initializeApp({
+sessionStorage.getItem("adminLoggedIn")==="true" ? showAdmin() : showLogin();
+
+/* ===== FIREBASE ===== */
+const firebaseConfig={
   apiKey:"AIzaSyC7h8wS3Rs6rSZVjUKL8DE9NlqxD3dCIgI",
-  databaseURL:"https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app"
-});
+  authDomain:"dent-dept-dtr.firebaseapp.com",
+  databaseURL:"https://dent-dept-dtr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"dent-dept-dtr"
+};
+const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);
 
-/* DATE */
-const today=new Date().toISOString().slice(0,10);
-todayLabel.textContent=today;
+/* ===== DATE ===== */
+const todayLabel=document.getElementById("todayLabel");
+todayLabel.textContent=new Date().toISOString().slice(0,10);
 
-/* DATA */
+/* ===== QR SCANNER ===== */
+const startBtn=document.getElementById("startBtn");
+const stopBtn=document.getElementById("stopBtn");
+const video=document.getElementById("video");
+const sessionSelect=document.getElementById("session");
+const codeReader=new ZXing.BrowserQRCodeReader();
+
+startBtn.onclick=async()=>{
+  const devices=await codeReader.listVideoInputDevices();
+  const cam=devices[0];
+  startBtn.disabled=true;
+  stopBtn.disabled=false;
+  showToast("Scanner started");
+  codeReader.decodeFromVideoDevice(cam.deviceId,video,(res)=>{
+    if(res) handleScan(res.getText());
+  });
+};
+
+stopBtn.onclick=()=>{
+  codeReader.reset();
+  startBtn.disabled=false;
+  stopBtn.disabled=true;
+  showToast("Scanner stopped");
+};
+
+/* ===== ATTENDANCE ===== */
+const tableBody=document.getElementById("tableBody");
+const searchEl=document.getElementById("search");
+const countShown=document.getElementById("countShown");
+const totalCount=document.getElementById("totalCount");
 let tableData={};
-onValue(ref(db,"attendance/"+today),snap=>{
-  tableData=snap.val()||{};
+
+onValue(ref(db,`attendance/${todayLabel.textContent}`),snap=>{
+  tableData=snap.exists()?snap.val():{};
   render();
 });
 
-/* QR */
-const reader=new ZXing.BrowserQRCodeReader();
-let last="";
-startBtn.onclick=async()=>{
-  const d=await reader.listVideoInputDevices();
-  const cam=d.find(x=>/back|rear/i.test(x.label))||d[0];
-  reader.decodeFromVideoDevice(cam.deviceId,video,res=>{
-    if(res&&res.getText()!==last){
-      last=res.getText();
-      handleScan(last);
-    }
-  });
-  startBtn.disabled=true;stopBtn.disabled=false;
-};
-stopBtn.onclick=()=>{reader.reset();startBtn.disabled=false;stopBtn.disabled=true};
+function parseQR(t){
+  try{
+    const j=JSON.parse(t);
+    if(j.uid && (j.mode==="in"||j.mode==="out")) return j;
+  }catch{}
+  return null;
+}
 
-function parseQR(t){try{const j=JSON.parse(t);return j.uid&&j.mode?j:null}catch{return null}}
+async function handleScan(text){
+  const qr=parseQR(text);
+  if(!qr){showToast("Invalid QR","error");return;}
 
-async function handleScan(t){
-  const qr=parseQR(t);
-  if(!qr)return showToast("Invalid QR","error");
+  const refUser=ref(db,`attendance/${todayLabel.textContent}/${qr.uid}`);
+  const snap=await get(refUser);
+  const data=snap.exists()?snap.val():{};
+  const now=Date.now();
+  const sess=sessionSelect.value;
 
-  const uref=ref(db,`attendance/${today}/${qr.uid}`);
-  const snap=await get(uref);
-  const data=snap.val()||{};
-  const profSnap=await get(ref(db,`users/${qr.uid}`));
-  const prof=profSnap.val()||{};
-  const now=Date.now(),s=sessionSelect.value;
+  let field=null;
+  if(qr.mode==="in") field=sess==="morning"?"morningIn":"afternoonIn";
+  if(qr.mode==="out") field=sess==="morning"?"morningOut":"afternoonOut";
+  if(data[field]){showToast("Already recorded","error");return;}
 
-  if(qr.mode==="in"){
-    if(s==="morning"&&!data.morningIn)data.morningIn=now;
-    if(s==="afternoon"&&!data.afternoonIn)data.afternoonIn=now;
-  }
-  if(qr.mode==="out"){
-    if(s==="morning"&&data.morningIn&&!data.morningOut)data.morningOut=now;
-    if(s==="afternoon"&&data.afternoonIn&&!data.afternoonOut)data.afternoonOut=now;
-  }
-  Object.assign(data,{name:prof.name||"",course:prof.course||"",year:prof.year||"",date:today});
-  await set(uref,data);
+  await set(refUser,{...data,[field]:now,date:todayLabel.textContent});
+  navigator.vibrate?.(100);
   showToast("Recorded");
 }
 
-/* TABLE */
-function f(t){return t?new Date(t).toLocaleTimeString():""}
+function formatTime(t){
+  const d=new Date(t);
+  let h=d.getHours()%12||12;
+  return `${h}:${String(d.getMinutes()).padStart(2,"0")} ${d.getHours()<12?"AM":"PM"}`;
+}
+
 function render(){
   tableBody.innerHTML="";
   let shown=0;
-  Object.values(tableData).forEach(r=>{
-    const h=`${r.name} ${r.course} ${r.year}`.toLowerCase();
-    if(searchEl.value&&!h.includes(searchEl.value.toLowerCase()))return;
+  for(const uid in tableData){
+    const r=tableData[uid];
+    const hay=`${r.name||""} ${r.course||""} ${r.year||""}`.toLowerCase();
+    if(searchEl.value && !hay.includes(searchEl.value.toLowerCase())) continue;
     tableBody.innerHTML+=`
       <tr>
-        <td>${r.name}</td><td>${r.course}</td><td>${r.year}</td>
-        <td>${f(r.morningIn)}</td><td>${f(r.morningOut)}</td>
-        <td>${f(r.afternoonIn)}</td><td>${f(r.afternoonOut)}</td>
+        <td>${r.name||uid}</td>
+        <td>${r.course||""}</td>
+        <td>${r.year||""}</td>
+        <td>${r.morningIn?formatTime(r.morningIn):""}</td>
+        <td>${r.morningOut?formatTime(r.morningOut):""}</td>
+        <td>${r.afternoonIn?formatTime(r.afternoonIn):""}</td>
+        <td>${r.afternoonOut?formatTime(r.afternoonOut):""}</td>
+        <td>${r.date||""}</td>
       </tr>`;
     shown++;
-  });
+  }
   countShown.textContent=shown;
   totalCount.textContent=Object.keys(tableData).length;
 }
+
 searchEl.oninput=render;
-resetBtn.onclick=()=>{searchEl.value="";render()};
-
-/* CSV */
-exportBtn.onclick=()=>{
-  let csv="Name,Course,Year,M In,M Out,A In,A Out\n";
-  Object.values(tableData).forEach(r=>{
-    csv+=`${r.name},${r.course},${r.year},${f(r.morningIn)},${f(r.morningOut)},${f(r.afternoonIn)},${f(r.afternoonOut)}\n`;
-  });
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-  a.download=`attendance_${today}.csv`;
-  a.click();
-};
-
-/* PRINT */
-printBtn.onclick=()=>{
-  $("printDate").textContent=today;
-  $("printSession").textContent=sessionSelect.value.toUpperCase();
-  window.print();
-};
+resetBtn.onclick=()=>{searchEl.value="";render();showToast("View reset");};
+document.getElementById("printBtn").onclick=()=>window.print();
 </script>
 
 </body>
