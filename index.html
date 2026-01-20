@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Attendance Admin Panel</title>
+<title>Dentistry Admin Panel</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 
@@ -218,7 +218,7 @@ th{
 <header id="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <img id="logo" src="college-logo.png">
-    <strong>Attendance Admin</strong>
+    <strong>Dentistry Admin Panel</strong>
   </div>
   <button id="logoutBtn" class="ghost">Logout</button>
 </header>
@@ -452,6 +452,32 @@ el("resetBtn").onclick=async()=>{
 
 el("printBtn").onclick=()=>window.print();
 </script>
+
+  <style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  footer.page-footer {
+    text-align: center;
+    width: 100%;
+    padding: 10px 0;
+    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 13px;
+    color: #5a437c;
+    opacity: 0.85;
+    margin-top: auto;
+  }
+</style>
+
+<footer class="page-footer">
+  Created by <strong>NZM</strong><br>
+  &copy; 2025 | To God Be the Glory
+</footer>
 
 </body>
 </html>
