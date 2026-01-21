@@ -435,14 +435,7 @@ const db=getDatabase(app);
 /* ===== DATE + PRINT META ===== */
 const today=new Date().toISOString().slice(0,10);
 el("printDate").textContent=`Date: ${today}`;
-
-function updatePrintMeta(){
-  const s = el("session")?.value || "";
-  el("printMeta").textContent = s ? `Session: ${s.toUpperCase()}` : "";
-}
-el("session").addEventListener("change", updatePrintMeta);
-updatePrintMeta();
-
+    
 /*
   ✅ IMPORTANT:
   - USER_PATH is the permanent path that the USER PANEL reads
