@@ -12,7 +12,6 @@
   --primary:#7b38c3;
   --bg:#f6f7fb;
   --card:#ffffff;
-  --muted:#666;
 }
 
 body{
@@ -121,15 +120,16 @@ video{
   margin-bottom:10px;
 }
 
-/* TABLE */
+/* TABLE (SCREEN) */
 .table-wrap{
   width:100%;
   overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
 }
 
 table{
   width:100%;
-  min-width:760px;
+  min-width:760px; /* mobile horizontal scroll */
   border-collapse:collapse;
   font-size:13px;
 }
@@ -143,13 +143,8 @@ th{
   background:#f1ecfb;
 }
 
-/* PRINT HEADER */
-.print-header{
-  display:none;
-  text-align:center;
-}
-
-/* PRINT FOOTER (SIGNATURES) */
+/* PRINT HEADER / FOOTER */
+.print-header,
 .print-footer{
   display:none;
 }
@@ -161,9 +156,14 @@ th{
 }
 
 /* ======================
-   PRINT – PROFESSIONAL
+   PRINT – FIXED & CLEAN
 ====================== */
 @media print{
+
+  @page{
+    size:A4 landscape;
+    margin:10mm;
+  }
 
   body{background:#fff}
 
@@ -171,9 +171,11 @@ th{
     display:none!important;
   }
 
+  /* Header */
   .print-header{
     display:block;
-    margin-bottom:20px;
+    text-align:center;
+    margin-bottom:16px;
   }
 
   .print-header h2{
@@ -187,35 +189,47 @@ th{
   }
 
   .print-header hr{
-    margin:10px 0 20px;
+    margin:10px 0 16px;
     border:none;
     border-top:2px solid #000;
   }
 
+  /* IMPORTANT FIX — prevent cut columns */
+  .table-wrap{
+    overflow:visible!important;
+  }
+
   table{
-    font-size:11px;
+    width:100%!important;
+    min-width:0!important;   /* <-- FIX */
+    table-layout:fixed;      /* <-- FIX */
+    font-size:10px;
+  }
+
+  th,td{
+    padding:4px 3px;
+    white-space:nowrap;
+    text-align:center;
   }
 
   th{
     background:#eaeaea!important;
+    font-size:9px;
     text-transform:uppercase;
-    font-size:10px;
-  }
-
-  td{
-    text-align:center;
   }
 
   td:first-child,
   td:nth-child(2){
     text-align:left;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
   /* SIGNATURES */
   .print-footer{
     display:flex;
     justify-content:space-between;
-    margin-top:40px;
+    margin-top:30px;
     gap:40px;
   }
 
@@ -233,7 +247,6 @@ th{
 
   .sign-box .role{
     font-size:10px;
-    color:#333;
   }
 }
 </style>
@@ -316,7 +329,6 @@ th{
     </table>
   </div>
 
-  <!-- SIGNATURES -->
   <div class="print-footer">
     <div class="sign-box">
       <div class="line"></div>
